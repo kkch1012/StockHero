@@ -1,5 +1,8 @@
 export type CharacterRole = 'CLAUDE' | 'GEMINI' | 'GPT' | 'SYSTEM';
 
+// Re-export CharacterType from llm/types for convenience
+export type { CharacterType } from './llm/types';
+
 export interface DebateMessage {
   id: string;
   role: CharacterRole;

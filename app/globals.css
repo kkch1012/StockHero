@@ -123,4 +123,19 @@
   .mask-fade-top {
     mask-image: linear-gradient(to top, black 60%, transparent 100%);
   }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Text size utilities */
+  .text-2xs {
+    font-size: 0.625rem;
+    line-height: 0.875rem;
+  }
 }

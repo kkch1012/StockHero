@@ -1,158 +1,160 @@
-import type { LLMAdapter, LLMContext, LLMResponse, CharacterType } from './types';
-import { CHARACTER_PERSONAS } from './types';
-import { createMockAdapter } from './mock';
+import type { LLMAdapter, LLMContext, LLMResponse, CharacterType, PreviousTarget } from './types';
+import { MockLLMAdapter } from './mock';
+import { ClaudeAdapter } from './claude';
+import { GeminiAdapter } from './gemini';
+import { GPTAdapter } from './gpt';
 
-export interface DebateRoundResult {
-  messages: Array<{
-    role: CharacterType;
-    content: string;
-    risks: string;
-    sources: string[];
-    score: number;
-  }>;
-  consensusScore: number;
-  hasConsensus: boolean;
+interface DebateMessage {
+  character: CharacterType;
+  content: string;
+  score: number;
+  risks: string[];
+  sources: string[];
+  targetPrice?: number;
+  targetDate?: string;
+  priceRationale?: string;
 }
 
-export interface OrchestratorConfig {
-  adapters?: {
-    claude?: LLMAdapter;
-    gemini?: LLMAdapter;
-    gpt?: LLMAdapter;
-  };
+function getAdapter(character: CharacterType): LLMAdapter {
+  // Check if real API keys are available
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+  const hasGoogle = !!process.env.GOOGLE_AI_API_KEY;
+
+  switch (character) {
+    case 'claude':
+      return hasAnthropic ? new ClaudeAdapter() : new MockLLMAdapter('claude');
+    case 'gemini':
+      return hasGoogle ? new GeminiAdapter() : new MockLLMAdapter('gemini');
+    case 'gpt':
+      return hasOpenAI ? new GPTAdapter() : new MockLLMAdapter('gpt');
+    default:
+      return new MockLLMAdapter(character);
+  }
 }
 
 export class DebateOrchestrator {
-  private adapters: Record<CharacterType, LLMAdapter>;
+  private previousMessages: DebateMessage[] = [];
+  private previousTargets: PreviousTarget[] = [];
+  private currentPrice: number = 70000;
 
-  constructor(config?: OrchestratorConfig) {
-    this.adapters = {
-      CLAUDE: config?.adapters?.claude || createMockAdapter('CLAUDE'),
-      GEMINI: config?.adapters?.gemini || createMockAdapter('GEMINI'),
-      GPT: config?.adapters?.gpt || createMockAdapter('GPT'),
-    };
+  setCurrentPrice(price: number) {
+    this.currentPrice = price;
   }
 
-  async generateRound(context: LLMContext): Promise<DebateRoundResult> {
-    const order: CharacterType[] = ['CLAUDE', 'GEMINI', 'GPT'];
-    const messages: DebateRoundResult['messages'] = [];
-    
-    // Generate messages in sequence (each character can reference previous messages)
-    for (const character of order) {
-      const adapter = this.adapters[character];
-      const persona = CHARACTER_PERSONAS[character];
-      
-      const prompt = this.buildPrompt(character, persona, context, messages);
-      const response = await adapter.generateStructured(prompt, {
-        ...context,
-        previousMessages: [
-          ...context.previousMessages,
-          ...messages.map(m => ({ role: m.role, content: m.content })),
-        ],
-      });
-
-      messages.push({
-        role: character,
-        content: response.content,
-        risks: response.risks,
-        sources: response.sources,
-        score: response.score,
-      });
-    }
-
-    // Calculate consensus
-    const scores = messages.map(m => m.score);
-    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const minScore = Math.min(...scores);
-    const hasConsensus = minScore >= 4;
-
-    return {
-      messages,
-      consensusScore: Math.round(avgScore * 10) / 10,
-      hasConsensus,
-    };
-  }
-
-  async evaluateSymbol(
+  async generateRound(
     symbol: string,
     symbolName: string,
-    sector: string
-  ): Promise<{
-    avgScore: number;
-    scores: Record<CharacterType, number>;
-    riskFlags: string[];
-    hasConsensus: boolean;
-  }> {
-    const context: LLMContext = {
-      symbol,
-      symbolName,
-      sector,
-      round: 1,
-      previousMessages: [],
-    };
+    round: number
+  ): Promise<DebateMessage[]> {
+    const characters: CharacterType[] = ['claude', 'gemini', 'gpt'];
+    const messages: DebateMessage[] = [];
+    const newTargets: PreviousTarget[] = [];
 
-    const result = await this.generateRound(context);
-    
-    const scores: Record<CharacterType, number> = {
-      CLAUDE: 0,
-      GEMINI: 0,
-      GPT: 0,
-    };
-    
-    const riskFlags: string[] = [];
-    
-    for (const msg of result.messages) {
-      scores[msg.role] = msg.score;
-      if (msg.risks) {
-        riskFlags.push(...msg.risks.split(',').map(r => r.trim()));
+    for (const character of characters) {
+      const adapter = getAdapter(character);
+      const context: LLMContext = {
+        symbol,
+        symbolName,
+        round,
+        currentPrice: this.currentPrice,
+        previousMessages: [...this.previousMessages, ...messages].map(m => ({
+          character: m.character,
+          content: m.content,
+          targetPrice: m.targetPrice,
+          targetDate: m.targetDate,
+        })),
+        previousTargets: this.previousTargets,
+      };
+
+      try {
+        const response = await adapter.generateStructured(context);
+        const message: DebateMessage = {
+          character,
+          content: response.content,
+          score: response.score,
+          risks: response.risks,
+          sources: response.sources,
+          targetPrice: response.targetPrice,
+          targetDate: response.targetDate,
+          priceRationale: response.priceRationale,
+        };
+        messages.push(message);
+        
+        // Track target for next round
+        if (response.targetPrice && response.targetDate) {
+          newTargets.push({
+            character,
+            targetPrice: response.targetPrice,
+            targetDate: response.targetDate,
+          });
+        }
+      } catch (error) {
+        console.error(`Error generating response for ${character}:`, error);
+        // Fallback to mock if real API fails
+        const mockAdapter = new MockLLMAdapter(character);
+        const response = await mockAdapter.generateStructured(context);
+        const message: DebateMessage = {
+          character,
+          content: response.content,
+          score: response.score,
+          risks: response.risks,
+          sources: response.sources,
+          targetPrice: response.targetPrice,
+          targetDate: response.targetDate,
+          priceRationale: response.priceRationale,
+        };
+        messages.push(message);
+        
+        if (response.targetPrice && response.targetDate) {
+          newTargets.push({
+            character,
+            targetPrice: response.targetPrice,
+            targetDate: response.targetDate,
+          });
+        }
       }
     }
 
-    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / 3;
-    const minScore = Math.min(...Object.values(scores));
-
-    return {
-      avgScore: Math.round(avgScore * 10) / 10,
-      scores,
-      riskFlags: [...new Set(riskFlags)].slice(0, 3),
-      hasConsensus: minScore >= 4,
-    };
+    this.previousMessages.push(...messages);
+    
+    // Update targets - keep only latest target per character
+    for (const newTarget of newTargets) {
+      const existingIndex = this.previousTargets.findIndex(t => t.character === newTarget.character);
+      if (existingIndex >= 0) {
+        this.previousTargets[existingIndex] = newTarget;
+      } else {
+        this.previousTargets.push(newTarget);
+      }
+    }
+    
+    return messages;
   }
 
-  private buildPrompt(
-    character: CharacterType,
-    persona: typeof CHARACTER_PERSONAS[CharacterType],
-    context: LLMContext,
-    previousMessages: Array<{ role: string; content: string }>
-  ): string {
-    const basePrompt = `
-You are ${persona.name}, a ${persona.title}.
-Your analysis style: ${persona.style}
-Your focus areas: ${persona.focus.join(', ')}
+  getMessages(): DebateMessage[] {
+    return this.previousMessages;
+  }
 
-Analyze the stock: ${context.symbolName} (${context.symbol})
-Sector: ${context.sector}
-Round: ${context.round}
+  getTargets(): PreviousTarget[] {
+    return this.previousTargets;
+  }
 
-IMPORTANT RULES:
-1. Never give direct buy/sell recommendations
-2. Always include risk factors
-3. Present balanced analysis with both positives and concerns
-4. Cite data sources
-5. Use professional, measured language
-
-Previous discussion:
-${previousMessages.map(m => `${m.role}: ${m.content}`).join('\n\n')}
-
-Provide your analysis in Korean. Be concise but thorough.
-    `.trim();
-
-    return basePrompt;
+  reset(): void {
+    this.previousMessages = [];
+    this.previousTargets = [];
   }
 }
 
-// Factory function
-export function createOrchestrator(config?: OrchestratorConfig): DebateOrchestrator {
-  return new DebateOrchestrator(config);
+// Session management for multiple debates
+const sessions = new Map<string, DebateOrchestrator>();
+
+export function getOrCreateSession(sessionId: string): DebateOrchestrator {
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, new DebateOrchestrator());
+  }
+  return sessions.get(sessionId)!;
 }
 
+export function deleteSession(sessionId: string): void {
+  sessions.delete(sessionId);
+}

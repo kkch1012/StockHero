@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { DisclaimerBar, Header, CharacterAvatar } from '@/components';
+import { DisclaimerBar, Header, CharacterAvatar, AIPortfolioSimulator } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
 import {
   generatePortfolioHistory,
@@ -92,16 +92,16 @@ function PortfolioChart({ data }: { data: PortfolioSnapshot[] }) {
       </div>
 
       {/* Chart */}
-      <div className="relative h-64 bg-dark-900/50 rounded-xl p-4">
+      <div className="relative h-64 bg-dark-900/50 rounded-xl p-4 pl-12">
         {/* Grid lines */}
-        <div className="absolute inset-4 flex flex-col justify-between pointer-events-none">
+        <div className="absolute left-12 right-4 top-4 bottom-4 flex flex-col justify-between pointer-events-none">
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="border-t border-dark-800/50" />
           ))}
         </div>
 
         {/* Y-axis labels */}
-        <div className="absolute left-0 top-4 bottom-4 flex flex-col justify-between text-xs text-dark-500 -translate-x-full pr-2">
+        <div className="absolute left-2 top-4 bottom-4 w-8 flex flex-col justify-between text-xs text-dark-500 text-right">
           <span>{maxReturn.toFixed(0)}%</span>
           <span>{((maxReturn + minReturn) / 2).toFixed(0)}%</span>
           <span>{minReturn.toFixed(0)}%</span>
@@ -160,7 +160,7 @@ function PortfolioChart({ data }: { data: PortfolioSnapshot[] }) {
         </svg>
 
         {/* Date labels */}
-        <div className="absolute left-4 right-4 bottom-0 translate-y-full pt-2 flex justify-between text-xs text-dark-500">
+        <div className="absolute left-12 right-4 bottom-0 translate-y-full pt-2 flex justify-between text-xs text-dark-500">
           <span>{data[0]?.date}</span>
           <span>{data[data.length - 1]?.date}</span>
         </div>
@@ -478,6 +478,11 @@ export default function ArchivePage() {
           <div className="card mb-8">
             <h3 className="font-semibold text-dark-100 mb-6">Portfolio Performance vs Benchmark</h3>
             <PortfolioChart data={portfolioHistory} />
+          </div>
+
+          {/* AI Portfolio Builder Section */}
+          <div className="mb-8">
+            <AIPortfolioSimulator />
           </div>
 
           {/* Two Column Layout */}

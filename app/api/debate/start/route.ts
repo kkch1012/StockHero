@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createDebateSession, getSymbolByCode } from '@/lib/supabase';
 
-// Mock symbol lookup
+// Fallback symbol lookup
 const MOCK_SYMBOLS: Record<string, { name: string; sector: string }> = {
   '005930': { name: '삼성전자', sector: '반도체' },
   '000660': { name: 'SK하이닉스', sector: '반도체' },
@@ -24,7 +25,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const symbolInfo = MOCK_SYMBOLS[symbol];
+    // Try to get symbol from Supabase first
+    let symbolInfo: { name: string; sector: string | null } | null = null;
+    
+    try {
+      const dbSymbol = await getSymbolByCode(symbol);
+      if (dbSymbol) {
+        symbolInfo = { name: dbSymbol.name, sector: dbSymbol.sector };
+      }
+    } catch (e) {
+      console.log('Supabase lookup failed, using fallback:', e);
+    }
+    
+    // Fallback to mock data
+    if (!symbolInfo) {
+      symbolInfo = MOCK_SYMBOLS[symbol];
+    }
+
     if (!symbolInfo) {
       return NextResponse.json(
         { success: false, error: 'Unknown symbol' },
@@ -32,16 +49,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const sessionId = `session-${symbol}-${today}-${Date.now()}`;
+    // Try to create session in Supabase
+    let sessionId: string;
+    try {
+      const session = await createDebateSession(symbol, symbolInfo.name);
+      sessionId = session.id;
+    } catch (e) {
+      console.log('Supabase session creation failed, using local ID:', e);
+      const today = new Date().toISOString().split('T')[0];
+      sessionId = `session-${symbol}-${today}-${Date.now()}`;
+    }
 
-    // In production, this would create a DB record
-    const session = {
+    const response = {
       id: sessionId,
+      sessionId: sessionId,
       symbol,
       symbolName: symbolInfo.name,
       sector: symbolInfo.sector,
-      date: today,
+      date: new Date().toISOString().split('T')[0],
       status: 'running',
       round: 0,
       messages: [
@@ -58,13 +83,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: session,
+      data: response,
     });
   } catch (error) {
+    console.error('Failed to start debate session:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to start debate session' },
       { status: 500 }
     );
   }
 }
-

@@ -1,8 +1,21 @@
-import Link from 'next/link';
-import { DisclaimerBar, Header, CharacterAvatar } from '@/components';
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { DisclaimerBar, Header, CharacterAvatar, AIConsultationModal } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
+import { CalendarSection } from './CalendarSection';
+import type { CharacterType } from '@/lib/llm/types';
 
 export default function HomePage() {
+  const router = useRouter();
+  const [consultCharacter, setConsultCharacter] = useState<CharacterType | null>(null);
+
+  const handleViewDebate = () => {
+    setConsultCharacter(null); // 모달 닫기
+    router.push('/battle/005930'); // 삼성전자 토론 페이지로 이동
+  };
+
   return (
     <>
       <DisclaimerBar />
@@ -16,7 +29,7 @@ export default function HomePage() {
         <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-accent-cyan/10 rounded-full blur-[120px] translate-y-1/2" />
 
         {/* Hero Section */}
-        <section className="relative pt-20 pb-32 md:pt-32 md:pb-40">
+        <section className="relative pt-20 pb-16 md:pt-32 md:pb-20">
           <div className="container-app">
             <div className="max-w-3xl mx-auto text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-dark-800/60 border border-dark-700/50 text-sm text-dark-300 mb-8 backdrop-blur-sm">
@@ -34,19 +47,10 @@ export default function HomePage() {
                 Claude, Gemini, GPT 세 AI가 실시간으로 종목을 분석하고 토론합니다.
                 다양한 관점을 통해 더 깊은 인사이트를 경험하세요.
               </p>
-              
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/verdict" className="btn-primary px-8 py-4 text-base">
-                  오늘의 Top 5 보기
-                </Link>
-                <Link href="/archive" className="btn-outline px-8 py-4 text-base">
-                  성과 확인하기
-                </Link>
-              </div>
             </div>
 
             {/* Stats */}
-            <div className="mt-20 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
+            <div className="mt-12 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
               {[
                 { value: '3', label: 'AI Models' },
                 { value: '20+', label: 'Daily Picks' },
@@ -60,6 +64,9 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* Calendar Section */}
+        <CalendarSection />
 
         {/* AI Characters Section */}
         <section className="relative py-24 border-t border-dark-800/50">
@@ -88,13 +95,23 @@ export default function HomePage() {
                     <p className="text-dark-400 text-sm leading-relaxed mb-4">
                       {char.description}
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {char.tags.map((tag) => (
                         <span key={tag} className={`badge ${char.bgColor} ${char.color} border-current/20`}>
                           {tag}
                         </span>
                       ))}
                     </div>
+                    {/* Consultation Button */}
+                    <button
+                      onClick={() => setConsultCharacter(charId)}
+                      className={`w-full py-2.5 px-4 rounded-xl bg-gradient-to-r ${char.gradient} text-white text-sm font-medium flex items-center justify-center gap-2 opacity-90 hover:opacity-100 transition-opacity`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      상담하기
+                    </button>
                   </div>
                 );
               })}
@@ -137,23 +154,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="relative py-24 border-t border-dark-800/50">
-          <div className="container-narrow text-center">
-            <div className="card bg-gradient-to-br from-dark-900 via-dark-900 to-dark-800 border-dark-700/50 p-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-dark-50 mb-4">
-                Start Watching
-              </h2>
-              <p className="text-dark-400 mb-8 max-w-md mx-auto">
-                AI 3대장의 종목 토론을 무료로 관전하세요
-              </p>
-              <Link href="/verdict" className="btn-primary px-10 py-4 text-base">
-                오늘의 Top 5 확인하기
-              </Link>
-            </div>
-          </div>
-        </section>
-
         {/* Footer */}
         <footer className="relative py-12 border-t border-dark-800/50">
           <div className="container-app">
@@ -170,6 +170,14 @@ export default function HomePage() {
         </footer>
       </main>
       <DisclaimerBar variant="bottom" compact />
+
+      {/* AI Consultation Modal */}
+      <AIConsultationModal
+        isOpen={consultCharacter !== null}
+        onClose={() => setConsultCharacter(null)}
+        characterType={consultCharacter || 'claude'}
+        onViewDebate={handleViewDebate}
+      />
     </>
   );
 }

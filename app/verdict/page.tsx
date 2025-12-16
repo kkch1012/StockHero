@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { DisclaimerBar, Header, SkeletonList, AdSlot } from '@/components';
+import { DisclaimerBar, Header, SkeletonList } from '@/components';
 import type { Top5Item } from '@/lib/types';
 
 async function getVerdict(): Promise<{
@@ -36,7 +36,7 @@ function RankBadge({ rank }: { rank: number }) {
     3: 'bg-gradient-to-br from-orange-400 to-orange-600 text-white',
   };
   return (
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${styles[rank] || 'bg-dark-700 text-dark-300'}`}>
+    <div className={`w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl flex items-center justify-center font-bold text-base sm:text-lg ${styles[rank] || 'bg-dark-700 text-dark-300'}`}>
       {rank}
     </div>
   );
@@ -61,30 +61,35 @@ async function VerdictContent() {
   const verdict = await getVerdict();
 
   return (
-    <div className="grid lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2 space-y-4">
+    <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="lg:col-span-2 space-y-3 sm:space-y-4">
         {verdict.top5.map((item, index) => (
           <Link key={item.symbolId} href={`/battle/${item.symbol}`}>
             <div className="card-interactive group">
-              <div className="flex items-start gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Rank Badge */}
                 <RankBadge rank={index + 1} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-lg font-semibold text-dark-100 group-hover:text-white transition-colors">
+                
+                {/* Stock Info */}
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1.5 sm:mb-2">
+                    <span className="text-base sm:text-lg font-semibold text-dark-100 group-hover:text-white transition-colors truncate max-w-full">
                       {item.name}
                     </span>
-                    <span className="text-sm text-dark-500 font-mono">{item.symbol}</span>
+                    <span className="text-xs sm:text-sm text-dark-500 font-mono shrink-0">{item.symbol}</span>
                     {index < 2 && (
-                      <span className="badge-success text-2xs">Unanimous</span>
+                      <span className="badge-success text-2xs shrink-0">Unanimous</span>
                     )}
                   </div>
                   <ScoreBar score={item.avgScore} />
-                  <p className="mt-3 text-sm text-dark-400 line-clamp-1">
+                  <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-dark-400 line-clamp-1">
                     {item.rationale}
                   </p>
                 </div>
-                <div className="text-dark-600 group-hover:text-brand-400 transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                
+                {/* Arrow */}
+                <div className="shrink-0 text-dark-600 group-hover:text-brand-400 transition-colors">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
@@ -119,8 +124,6 @@ async function VerdictContent() {
 
       {/* Sidebar */}
       <div className="space-y-6">
-        <AdSlot variant="sidebar" />
-
         <div className="card">
           <h3 className="font-semibold text-dark-100 mb-4 flex items-center gap-2">
             <svg className="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,15 +164,15 @@ export default function VerdictPage() {
     <>
       <DisclaimerBar />
       <Header />
-      <main className="min-h-screen bg-dark-950 pt-32 pb-16">
-        <div className="container-app">
+      <main className="min-h-screen bg-dark-950 pt-24 sm:pt-28 lg:pt-32 pb-16">
+        <div className="container-app px-4 sm:px-6">
           {/* Page Header */}
-          <div className="mb-10">
-            <div className="flex items-center gap-3 mb-3">
-              <h1 className="text-3xl font-bold text-dark-50">Today's Top 5</h1>
-              <span className="badge-brand">Live</span>
+          <div className="mb-6 sm:mb-8 lg:mb-10">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-dark-50">Today's Top 5</h1>
+              <span className="badge-brand text-xs sm:text-sm">Live</span>
             </div>
-            <p className="text-dark-400">
+            <p className="text-sm sm:text-base text-dark-400">
               AI 3대장의 토론을 통해 도출된 오늘의 주목 종목
             </p>
           </div>
