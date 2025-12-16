@@ -24,12 +24,27 @@ interface Post {
   isLiked?: boolean;
 }
 
-const STOCK_INFO: Record<string, { name: string; sector: string; price: number; change: number }> = {
-  '005930': { name: '삼성전자', sector: '반도체', price: 71500, change: 1.2 },
-  '000660': { name: 'SK하이닉스', sector: '반도체', price: 178000, change: -0.8 },
-  '373220': { name: 'LG에너지솔루션', sector: '2차전지', price: 385000, change: 2.1 },
-  '035720': { name: '카카오', sector: 'IT서비스', price: 42500, change: -1.5 },
-  '035420': { name: 'NAVER', sector: 'IT서비스', price: 192000, change: 0.5 },
+import { getStockName } from '@/lib/stock-names';
+
+const STOCK_SECTORS: Record<string, string> = {
+  '005930': '반도체',
+  '000660': '반도체',
+  '373220': '2차전지',
+  '006400': '2차전지',
+  '247540': '2차전지',
+  '207940': '바이오',
+  '068270': '바이오',
+  '005380': '자동차',
+  '000270': '자동차',
+  '035720': 'IT서비스',
+  '035420': 'IT서비스',
+  '105560': '금융',
+  '055550': '금융',
+  '086790': '금융',
+  '017670': '통신',
+  '030200': '통신',
+  '051910': '화학',
+  '005490': '철강',
 };
 
 function formatTimeAgo(dateString: string): string {
@@ -93,7 +108,28 @@ function PostItem({ post, onLike }: { post: Post; onLike: (id: string) => void }
 export default function StockRoomPage() {
   const params = useParams();
   const symbol = params.symbol as string;
-  const stockInfo = STOCK_INFO[symbol] || { name: symbol, sector: '기타', price: 0, change: 0 };
+  const stockName = getStockName(symbol);
+  const stockSector = STOCK_SECTORS[symbol] || '기타';
+  const [stockPrice, setStockPrice] = useState({ price: 0, change: 0 });
+  
+  // 실시간 가격 조회
+  useEffect(() => {
+    async function fetchPrice() {
+      try {
+        const res = await fetch(`/api/stock/price?symbol=${symbol}`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          setStockPrice({
+            price: data.data.price,
+            change: data.data.changePercent || 0,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch stock price:', error);
+      }
+    }
+    fetchPrice();
+  }, [symbol]);
   const { user } = useAuth();
 
   const [posts, setPosts] = useState<Post[]>([]);
@@ -130,7 +166,7 @@ export default function StockRoomPage() {
         body: JSON.stringify({ 
           content: newPost, 
           stockCode: symbol, 
-          stockName: stockInfo.name 
+          stockName: stockName 
         }),
       });
       const data = await res.json();
@@ -184,22 +220,26 @@ export default function StockRoomPage() {
           <div className="card mb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center text-2xl font-bold text-dark-300">
-                {stockInfo.name.charAt(0)}
+                {stockName.charAt(0)}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-bold text-dark-50">{stockInfo.name}</h1>
-                  <span className="text-sm text-dark-500">{symbol}</span>
+                  <h1 className="text-xl font-bold text-dark-50">{stockName}</h1>
+                  <span className="text-sm text-dark-500 font-mono">{symbol}</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-sm text-dark-400">{stockInfo.sector}</span>
-                  <span className="text-dark-600">|</span>
-                  <span className="text-sm font-medium text-dark-200">
-                    {stockInfo.price.toLocaleString()}원
-                  </span>
-                  <span className={`text-sm font-medium ${stockInfo.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {stockInfo.change >= 0 ? '+' : ''}{stockInfo.change}%
-                  </span>
+                  <span className="text-sm text-dark-400">{stockSector}</span>
+                  {stockPrice.price > 0 && (
+                    <>
+                      <span className="text-dark-600">|</span>
+                      <span className="text-sm font-medium text-dark-200">
+                        {stockPrice.price.toLocaleString()}원
+                      </span>
+                      <span className={`text-sm font-medium ${stockPrice.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {stockPrice.change >= 0 ? '+' : ''}{stockPrice.change.toFixed(2)}%
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <Link
@@ -222,7 +262,7 @@ export default function StockRoomPage() {
                   <textarea
                     value={newPost}
                     onChange={(e) => setNewPost(e.target.value)}
-                    placeholder={`${stockInfo.name}에 대한 의견을 공유해보세요...`}
+                    placeholder={`${stockName}에 대한 의견을 공유해보세요...`}
                     className="w-full bg-dark-800 border border-dark-700 rounded-xl p-3 text-dark-100 placeholder-dark-500 resize-none focus:outline-none focus:border-brand-500 min-h-[100px]"
                   />
                   <div className="flex justify-end mt-3">
