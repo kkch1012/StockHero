@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { UserMenu } from './UserMenu';
 
 const NAV_LINKS = [
+  { href: '/heroes', label: 'Stock Heros' },
   { href: '/verdict', label: 'Top 5' },
   // { href: '/paper-trading', label: 'Paper Trading' }, // TODO: 나중에 추가
   { href: '/archive', label: 'Archive' },
