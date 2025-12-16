@@ -7,11 +7,12 @@ import type { CharacterType } from '@/lib/types';
 
 interface CharacterAvatarProps {
   character: CharacterType;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }
 
 const SIZES = {
+  xs: { container: 'w-6 h-6', text: 'text-xs' },
   sm: { container: 'w-8 h-8', text: 'text-sm' },
   md: { container: 'w-10 h-10', text: 'text-base' },
   lg: { container: 'w-12 h-12', text: 'text-lg' },
