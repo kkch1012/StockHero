@@ -1,12 +1,16 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Server-side Supabase client with service role (for admin operations)
 export function createServerClient() {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.warn('Supabase server environment variables not configured');
+    return createSupabaseClient('https://placeholder.supabase.co', 'placeholder-key');
+  }
   return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -15,13 +19,37 @@ export function createServerClient() {
   });
 }
 
-// Admin client for database operations
-export const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
+// Admin client for database operations - lazy initialization
+let _supabaseAdmin: SupabaseClient | null = null;
+
+export function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.warn('Supabase admin environment variables not configured');
+      return createSupabaseClient('https://placeholder.supabase.co', 'placeholder-key');
+    }
+    _supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return _supabaseAdmin;
+}
+
+// Legacy export for backwards compatibility
+export const supabaseAdmin = {
+  from: (table: string) => getSupabaseAdmin().from(table),
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
+    getUser: () => getSupabaseAdmin().auth.getUser(),
+    admin: {
+      getUserById: (id: string) => getSupabaseAdmin().auth.admin.getUserById(id),
+      listUsers: () => getSupabaseAdmin().auth.admin.listUsers(),
+    },
   },
-});
+  rpc: (fn: string, params?: any) => getSupabaseAdmin().rpc(fn, params),
+};
 
 // Async client for API routes - handles user authentication via cookies
 export async function createClient() {
