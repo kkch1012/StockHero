@@ -3,6 +3,7 @@ import { MockLLMAdapter } from './mock';
 import { ClaudeAdapter } from './claude';
 import { GeminiAdapter } from './gemini';
 import { GPTAdapter } from './gpt';
+import { deriveConsensus, type ConsensusResult } from './analysis-framework';
 
 interface DebateMessage {
   character: CharacterType;
@@ -13,6 +14,8 @@ interface DebateMessage {
   targetPrice?: number;
   targetDate?: string;
   priceRationale?: string;
+  dateRationale?: string;
+  methodology?: string;
 }
 
 function getAdapter(character: CharacterType): LLMAdapter {
@@ -69,23 +72,41 @@ export class DebateOrchestrator {
 
       try {
         const response = await adapter.generateStructured(context);
+        
+        // 최종 목표가 검증 (안전 장치)
+        let validatedTargetPrice = response.targetPrice;
+        if (validatedTargetPrice !== undefined) {
+          // 목표가가 현재가의 50% 미만이거나 500% 초과면 보정
+          if (validatedTargetPrice < this.currentPrice * 0.5) {
+            console.warn(`[Orchestrator] ${character} target price ${validatedTargetPrice} is unrealistic, recalculating`);
+            const fallbackMultiplier = character === 'gemini' ? 1.3 : character === 'claude' ? 1.15 : 1.1;
+            validatedTargetPrice = Math.round(this.currentPrice * fallbackMultiplier / 100) * 100;
+          } else if (validatedTargetPrice > this.currentPrice * 5) {
+            console.warn(`[Orchestrator] ${character} target price ${validatedTargetPrice} is too high, capping`);
+            const capMultiplier = character === 'gemini' ? 2.0 : 1.5;
+            validatedTargetPrice = Math.round(this.currentPrice * capMultiplier / 100) * 100;
+          }
+        }
+        
         const message: DebateMessage = {
           character,
           content: response.content,
           score: response.score,
           risks: response.risks,
           sources: response.sources,
-          targetPrice: response.targetPrice,
+          targetPrice: validatedTargetPrice,
           targetDate: response.targetDate,
           priceRationale: response.priceRationale,
+          dateRationale: response.dateRationale,
+          methodology: response.methodology,
         };
         messages.push(message);
         
         // Track target for next round
-        if (response.targetPrice && response.targetDate) {
+        if (validatedTargetPrice && response.targetDate) {
           newTargets.push({
             character,
-            targetPrice: response.targetPrice,
+            targetPrice: validatedTargetPrice,
             targetDate: response.targetDate,
           });
         }
@@ -94,22 +115,32 @@ export class DebateOrchestrator {
         // Fallback to mock if real API fails
         const mockAdapter = new MockLLMAdapter(character);
         const response = await mockAdapter.generateStructured(context);
+        
+        // Mock 응답도 검증 (이론상 필요 없지만 안전을 위해)
+        let validatedTargetPrice = response.targetPrice;
+        if (validatedTargetPrice !== undefined && validatedTargetPrice < this.currentPrice * 0.5) {
+          const fallbackMultiplier = character === 'gemini' ? 1.3 : character === 'claude' ? 1.15 : 1.1;
+          validatedTargetPrice = Math.round(this.currentPrice * fallbackMultiplier / 100) * 100;
+        }
+        
         const message: DebateMessage = {
           character,
           content: response.content,
           score: response.score,
           risks: response.risks,
           sources: response.sources,
-          targetPrice: response.targetPrice,
+          targetPrice: validatedTargetPrice,
           targetDate: response.targetDate,
           priceRationale: response.priceRationale,
+          dateRationale: response.dateRationale,
+          methodology: response.methodology,
         };
         messages.push(message);
         
-        if (response.targetPrice && response.targetDate) {
+        if (validatedTargetPrice && response.targetDate) {
           newTargets.push({
             character,
-            targetPrice: response.targetPrice,
+            targetPrice: validatedTargetPrice,
             targetDate: response.targetDate,
           });
         }
@@ -137,6 +168,29 @@ export class DebateOrchestrator {
 
   getTargets(): PreviousTarget[] {
     return this.previousTargets;
+  }
+
+  /**
+   * 합의 도출 - 세 분석가의 목표가와 분석 논리를 종합하여 합의점 계산
+   */
+  getConsensus(): ConsensusResult | null {
+    if (this.previousTargets.length < 3) {
+      return null;
+    }
+
+    const targets = this.previousTargets.map(t => {
+      const message = this.previousMessages.find(m => 
+        m.character === t.character && m.targetPrice === t.targetPrice
+      );
+      return {
+        character: t.character as CharacterType,
+        targetPrice: t.targetPrice,
+        targetDate: t.targetDate,
+        confidence: message?.score || 3,
+      };
+    });
+
+    return deriveConsensus(targets);
   }
 
   reset(): void {

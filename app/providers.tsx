@@ -2,12 +2,16 @@
 
 import { ReactNode } from 'react';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { ToastProvider } from '@/components/Toast';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      {children}
+      <ToastProvider>
+        {children}
+      </ToastProvider>
     </AuthProvider>
   );
 }
+
 

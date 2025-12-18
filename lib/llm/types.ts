@@ -6,6 +6,8 @@ export interface LLMResponse {
   targetPrice?: number;
   targetDate?: string;
   priceRationale?: string;
+  dateRationale?: string;  // 목표 달성 시점 산출 근거
+  methodology?: string;    // 사용된 분석 방법론
 }
 
 export interface PreviousTarget {

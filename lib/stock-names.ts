@@ -1,57 +1,20 @@
 /**
  * 종목 코드 - 종목명 매핑
  * 전체 앱에서 일관된 종목명 표시를 위해 사용
+ * 
+ * Note: 기본 매핑은 KRX_ALL_STOCKS에서 가져오며,
+ * 이 파일은 하위 호환성을 위해 유지됩니다.
  */
 
-export const STOCK_NAMES: Record<string, string> = {
-  // 반도체
-  '005930': '삼성전자',
-  '000660': 'SK하이닉스',
-  
-  // 2차전지
-  '373220': 'LG에너지솔루션',
-  '006400': '삼성SDI',
-  '247540': '에코프로비엠',
-  
-  // 바이오
-  '207940': '삼성바이오로직스',
-  '068270': '셀트리온',
-  
-  // 자동차
-  '005380': '현대차',
-  '000270': '기아',
-  '012330': '현대모비스',
-  
-  // IT서비스
-  '035420': 'NAVER',
-  '035720': '카카오',
-  
-  // 금융
-  '105560': 'KB금융',
-  '055550': '신한지주',
-  '086790': '하나금융지주',
-  
-  // 통신
-  '017670': 'SK텔레콤',
-  '030200': 'KT',
-  '032640': 'LG유플러스',
-  
-  // 화학
-  '051910': 'LG화학',
-  
-  // 철강
-  '005490': 'POSCO홀딩스',
-  
-  // 보험
-  '032830': '삼성생명',
-  
-  // 지주회사
-  '034730': 'SK',
-  '003550': 'LG',
-  
-  // 유통
-  '004170': '신세계',
-};
+import { KRX_ALL_STOCKS } from './data/krx-stocks';
+
+// Re-export KRX utilities for convenience
+export { KRX_ALL_STOCKS, findStockBySymbol, searchStocksByName, KRX_SECTORS } from './data/krx-stocks';
+
+// KRX 데이터에서 종목명 매핑 생성
+export const STOCK_NAMES: Record<string, string> = Object.fromEntries(
+  KRX_ALL_STOCKS.map(stock => [stock.symbol, stock.name])
+);
 
 /**
  * 종목 코드로 종목명 조회
@@ -95,4 +58,5 @@ export function getStockDisplayName(symbol: string, fallbackName?: string): stri
   // 3. 코드 그대로 반환
   return symbol;
 }
+
 

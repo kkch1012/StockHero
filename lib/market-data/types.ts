@@ -44,3 +44,4 @@ export interface MarketDataProvider {
   getCandidateSymbols(count?: number): Promise<string[]>;
 }
 
+

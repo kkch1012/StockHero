@@ -1,10 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CharacterAvatar } from '@/components/CharacterAvatar';
 import { DisclaimerBar, Header } from '@/components';
+
+// AI 의견 메시지 인터페이스
+interface AIOpinionMessage {
+  id: string;
+  content: string;
+  timestamp: Date;
+}
+
+// 각 주식별 AI 의견 상태
+interface StockOpinionState {
+  isOpen: boolean;
+  messages: AIOpinionMessage[];
+  isLoading: boolean;
+  hasMore: boolean;
+  turn: number;
+}
 
 // 히어로 메타 데이터
 const HERO_META = {
@@ -83,8 +99,135 @@ export default function HeroDetailPage() {
   const [data, setData] = useState<HeroData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedStock, setExpandedStock] = useState<number | null>(null);
+  const [stockOpinions, setStockOpinions] = useState<Record<string, StockOpinionState>>({});
+  const [typingText, setTypingText] = useState<Record<string, string>>({});
+  const opinionEndRef = useRef<HTMLDivElement>(null);
   
   const meta = HERO_META[heroId as keyof typeof HERO_META];
+
+  // AI 의견 가져오기
+  const fetchAIOpinion = async (stock: Stock, isMore: boolean = false) => {
+    const stockKey = stock.symbol;
+    const currentState = stockOpinions[stockKey];
+    const currentTurn = isMore ? (currentState?.turn || 0) + 1 : 1;
+    const analysisTypes = ['initial', 'detailed', 'strategy', 'risk', 'conclusion'] as const;
+
+    // 상태 초기화 또는 로딩 상태 설정
+    setStockOpinions(prev => ({
+      ...prev,
+      [stockKey]: {
+        isOpen: true,
+        messages: isMore ? (prev[stockKey]?.messages || []) : [],
+        isLoading: true,
+        hasMore: true,
+        turn: currentTurn,
+      }
+    }));
+
+    try {
+      const response = await fetch('/api/consultation/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characterType: heroId,
+          messages: [{ role: 'user', content: `${stock.name}에 대해 분석해주세요.` }],
+          stockData: {
+            symbol: stock.symbol,
+            name: stock.name,
+            currentPrice: stock.currentPrice,
+            change: stock.change,
+            changePercent: stock.changePercent,
+          },
+          isInitialAnalysis: true,
+          analysisType: analysisTypes[currentTurn - 1],
+          turn: currentTurn,
+        }),
+      });
+
+      const result = await response.json();
+      const messageId = `${stockKey}-${currentTurn}`;
+      const messageContent = result.data?.content || result.message || '응답을 가져올 수 없습니다.';
+      const newMessage: AIOpinionMessage = {
+        id: messageId,
+        content: messageContent,
+        timestamp: new Date(),
+      };
+
+      // 타이핑 애니메이션
+      setTypingText(prev => ({ ...prev, [messageId]: '' }));
+      const fullText = messageContent;
+      let charIndex = 0;
+      
+      const typeInterval = setInterval(() => {
+        if (charIndex < fullText.length) {
+          setTypingText(prev => ({
+            ...prev,
+            [messageId]: fullText.slice(0, charIndex + 1)
+          }));
+          charIndex++;
+        } else {
+          clearInterval(typeInterval);
+          setTypingText(prev => {
+            const newState = { ...prev };
+            delete newState[messageId];
+            return newState;
+          });
+        }
+      }, 15);
+
+      setStockOpinions(prev => ({
+        ...prev,
+        [stockKey]: {
+          ...prev[stockKey],
+          messages: [...(prev[stockKey]?.messages || []), newMessage],
+          isLoading: false,
+          hasMore: currentTurn < 5,
+          turn: currentTurn,
+        }
+      }));
+
+    } catch (error) {
+      console.error('AI opinion fetch error:', error);
+      setStockOpinions(prev => ({
+        ...prev,
+        [stockKey]: {
+          ...prev[stockKey],
+          isLoading: false,
+        }
+      }));
+    }
+  };
+
+  // 의견 접기/펼치기
+  const toggleOpinion = (stock: Stock) => {
+    const stockKey = stock.symbol;
+    const currentState = stockOpinions[stockKey];
+
+    if (currentState?.isOpen) {
+      setStockOpinions(prev => ({
+        ...prev,
+        [stockKey]: { ...prev[stockKey], isOpen: false }
+      }));
+    } else if (currentState?.messages?.length > 0) {
+      setStockOpinions(prev => ({
+        ...prev,
+        [stockKey]: { ...prev[stockKey], isOpen: true }
+      }));
+    } else {
+      fetchAIOpinion(stock);
+    }
+  };
+
+  // 더보기 버튼 텍스트 (5단계)
+  const getMoreButtonText = (turn: number) => {
+    switch (turn) {
+      case 1: return '📊 상세 분석 보기';
+      case 2: return '📈 투자 전략 보기';
+      case 3: return '⚠️ 리스크 분석 보기';
+      case 4: return '🎯 최종 결론 보기';
+      default: return '더보기';
+    }
+  };
   
   useEffect(() => {
     if (!meta) {
@@ -255,14 +398,21 @@ export default function HeroDetailPage() {
                         </span>
                       )}
                     </div>
-                    <p className={`text-sm ${meta.textColor}`}>
-                      목표 {stock.targetPrice.toLocaleString()}원
-                      {stock.currentPrice > 0 && (
-                        <span className="text-green-400 ml-2">
-                          (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
-                        </span>
-                      )}
-                    </p>
+                    {/* 목표가는 대화 완료 후 표시 */}
+                    {stockOpinions[stock.symbol]?.messages?.length >= 5 ? (
+                      <p className={`text-sm ${meta.textColor}`}>
+                        목표 {stock.targetPrice.toLocaleString()}원
+                        {stock.currentPrice > 0 && (
+                          <span className="text-green-400 ml-2">
+                            (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
+                          </span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-yellow-400/80 animate-pulse">
+                        🔒 5번 의견보기 후 공개
+                      </p>
+                    )}
                   </div>
                   
                   {/* Score Badge */}
@@ -295,14 +445,21 @@ export default function HeroDetailPage() {
                           </span>
                         )}
                       </div>
-                      <p className={`text-sm ${meta.textColor}`}>
-                        목표 {stock.targetPrice.toLocaleString()}원
-                        {stock.currentPrice > 0 && (
-                          <span className="text-green-400 ml-2">
-                            (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
-                          </span>
-                        )}
-                      </p>
+                      {/* 목표가는 대화 완료 후 표시 */}
+                      {stockOpinions[stock.symbol]?.messages?.length >= 5 ? (
+                        <p className={`text-sm ${meta.textColor}`}>
+                          목표 {stock.targetPrice.toLocaleString()}원
+                          {stock.currentPrice > 0 && (
+                            <span className="text-green-400 ml-2">
+                              (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
+                            </span>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-yellow-400/80 animate-pulse">
+                          🔒 5번 의견보기 후 공개
+                        </p>
+                      )}
                     </div>
                     
                     {/* Reason */}
@@ -342,19 +499,171 @@ export default function HeroDetailPage() {
                       </div>
                     </div>
                     
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-4 border-t border-dark-700/50">
-                      <Link
-                        href={`/battle/${stock.symbol}`}
-                        className={`flex-1 py-3 rounded-xl font-medium text-center bg-gradient-to-r ${meta.color} text-white hover:opacity-90 transition-all`}
-                      >
-                        AI 토론 보기
-                      </Link>
+                    {/* AI Opinion Button */}
+                    <div className="pt-4 border-t border-dark-700/50">
                       <button
-                        className="px-4 py-3 rounded-xl font-medium bg-dark-800 text-dark-300 hover:bg-dark-700 transition-all"
+                        onClick={() => toggleOpinion(stock)}
+                        className={`w-full py-3 rounded-xl font-medium text-center bg-gradient-to-r ${meta.color} text-white hover:opacity-90 transition-all flex items-center justify-center gap-2`}
                       >
-                        관심 등록
+                        <CharacterAvatar character={heroId as 'claude' | 'gemini' | 'gpt'} size="xs" />
+                        {meta.nameKo} 의견보기
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${stockOpinions[stock.symbol]?.isOpen ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       </button>
+                      
+                      {/* AI Opinion Chat Area */}
+                      {stockOpinions[stock.symbol]?.isOpen && (
+                        <div className="mt-4 space-y-4">
+                          {/* Messages */}
+                          {stockOpinions[stock.symbol]?.messages.map((msg, msgIdx) => {
+                            const isTyping = typingText[msg.id] !== undefined;
+                            const displayText = isTyping ? typingText[msg.id] : msg.content;
+                            
+                            return (
+                              <div key={msg.id} className="relative">
+                                {/* Turn indicator */}
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`text-xs ${meta.textColor} font-medium`}>
+                                    {msgIdx === 0 ? '💡 초기 분석' : 
+                                     msgIdx === 1 ? '📊 상세 분석' : 
+                                     msgIdx === 2 ? '📈 투자 전략' : 
+                                     msgIdx === 3 ? '⚠️ 리스크 분석' : '🎯 최종 결론'}
+                                  </span>
+                                  <span className="text-[10px] text-dark-500">({msgIdx + 1}/5)</span>
+                                </div>
+                                
+                                {/* Message bubble */}
+                                <div className={`p-4 rounded-xl ${meta.bgColor} border ${meta.borderColor}`}>
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-shrink-0">
+                                      <CharacterAvatar character={heroId as 'claude' | 'gemini' | 'gpt'} size="sm" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-dark-500 mb-1">{meta.name}</p>
+                                      <p className="text-dark-200 text-sm whitespace-pre-wrap leading-relaxed">
+                                        {displayText}
+                                        {isTyping && <span className="animate-pulse">▌</span>}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Loading indicator */}
+                          {stockOpinions[stock.symbol]?.isLoading && (
+                            <div className={`p-4 rounded-xl ${meta.bgColor} border ${meta.borderColor}`}>
+                              <div className="flex items-center gap-3">
+                                <CharacterAvatar character={heroId as 'claude' | 'gemini' | 'gpt'} size="sm" />
+                                <div className="flex gap-1">
+                                  <span className={`w-2 h-2 ${meta.bgColor.replace('/10', '')} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }}></span>
+                                  <span className={`w-2 h-2 ${meta.bgColor.replace('/10', '')} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }}></span>
+                                  <span className={`w-2 h-2 ${meta.bgColor.replace('/10', '')} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }}></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* More button with teaser */}
+                          {stockOpinions[stock.symbol]?.hasMore && 
+                           !stockOpinions[stock.symbol]?.isLoading && 
+                           stockOpinions[stock.symbol]?.messages.length > 0 && (
+                            <div className="space-y-3">
+                              <button
+                                onClick={() => fetchAIOpinion(stock, true)}
+                                className={`w-full py-3 rounded-xl font-medium text-center border-2 border-dashed ${meta.borderColor} ${meta.textColor} hover:bg-dark-800/50 transition-all flex items-center justify-center gap-2`}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                {getMoreButtonText(stockOpinions[stock.symbol]?.turn || 1)}
+                              </button>
+                              
+                              {/* Teaser text */}
+                              <div className="text-center animate-pulse">
+                                <p className="text-sm font-medium text-yellow-400">
+                                  🔓 {5 - (stockOpinions[stock.symbol]?.turn || 1)}번 더 보면 <span className="text-yellow-300 font-bold">목표가 & 목표날짜</span> 공개!
+                                </p>
+                                <div className="flex items-center justify-center gap-1 mt-2">
+                                  {[1, 2, 3, 4, 5].map((i) => (
+                                    <div 
+                                      key={i}
+                                      className={`w-3 h-3 rounded-full transition-all ${
+                                        i <= (stockOpinions[stock.symbol]?.turn || 0) 
+                                          ? `bg-gradient-to-r ${meta.color}` 
+                                          : 'bg-dark-700'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <p className="text-xs text-dark-500 mt-1">
+                                  진행률 {stockOpinions[stock.symbol]?.turn || 0}/5
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Completion message with Target Price */}
+                          {!stockOpinions[stock.symbol]?.hasMore && 
+                           stockOpinions[stock.symbol]?.messages.length >= 5 && (
+                            <div className="mt-4 space-y-4">
+                              {/* Target Price Card */}
+                              <div className={`p-5 rounded-xl bg-gradient-to-r ${meta.color} text-white`}>
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-sm opacity-90">🎯 {meta.nameKo}의 목표가</span>
+                                  <span className="text-xs opacity-75">분석 완료</span>
+                                </div>
+                                <div className="flex items-end justify-between">
+                                  <div>
+                                    <p className="text-3xl font-bold">₩{stock.targetPrice.toLocaleString()}</p>
+                                    <p className="text-sm opacity-90 mt-1">
+                                      현재가 {stock.currentPrice.toLocaleString()}원 대비{' '}
+                                      <span className="font-bold">
+                                        (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
+                                      </span>
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs opacity-75">예상 수익</p>
+                                    <p className="text-xl font-bold text-green-300">
+                                      +₩{(stock.targetPrice - stock.currentPrice).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Completion Text */}
+                              <div className="text-center py-2">
+                                <p className="text-xs text-dark-500">✨ {meta.nameKo}의 전체 분석이 완료되었습니다</p>
+                                <Link 
+                                  href={`/battle/${stock.symbol}`}
+                                  className={`inline-block mt-2 text-sm ${meta.textColor} hover:underline`}
+                                >
+                                  다른 전문가 의견도 확인하기 →
+                                </Link>
+                              </div>
+                            </div>
+                          )}
+
+                          <div ref={opinionEndRef} />
+                        </div>
+                      )}
+                      
+                      {/* Initial teaser before first click */}
+                      {!stockOpinions[stock.symbol]?.isOpen && !stockOpinions[stock.symbol]?.messages?.length && (
+                        <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
+                          <p className="text-center text-sm text-yellow-400 font-medium">
+                            🔒 5번의 의견 보기 이후 <span className="text-yellow-300 font-bold">목표가</span>와 <span className="text-yellow-300 font-bold">목표날짜</span>가 공개됩니다!
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -404,4 +713,3 @@ export default function HeroDetailPage() {
     </>
   );
 }
-

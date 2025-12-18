@@ -6,7 +6,7 @@ import type { CharacterType } from '@/lib/types';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || '' });
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
 // 한국 주식 목록과 현재가 (실제로는 실시간 데이터를 가져와야 함)
 const AVAILABLE_STOCKS = [
@@ -138,7 +138,7 @@ async function generateClaudePortfolio(amount: number): Promise<AIPortfolio | nu
 async function generateGeminiPortfolio(amount: number): Promise<AIPortfolio | null> {
   try {
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: GEMINI_SYSTEM,
     });
 

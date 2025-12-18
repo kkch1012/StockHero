@@ -171,3 +171,4 @@ export async function fetchKospi200Prices(): Promise<FetchResult> {
   }
 }
 
+

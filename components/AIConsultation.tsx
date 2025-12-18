@@ -45,23 +45,40 @@ interface Holding {
   currentPrice: number;
 }
 
+interface StockData {
+  symbol: string;
+  name: string;
+  currentPrice: number;
+  change: number;
+  changePercent: number;
+}
+
 interface AIConsultationProps {
   characterType: CharacterType;
   holdings?: Holding[];
+  stockData?: StockData;  // 실시간 주식 데이터
   onClose?: () => void;
   onViewDebate?: () => void;
   showDebateButton?: boolean;
 }
 
-export function AIConsultation({ characterType, holdings = [], onClose, onViewDebate, showDebateButton = true }: AIConsultationProps) {
+export function AIConsultation({ characterType, holdings = [], stockData, onClose, onViewDebate, showDebateButton = true }: AIConsultationProps) {
   const char = CHARACTERS[characterType];
   const persona = AI_PERSONAS[characterType];
   
+  // 종목 데이터가 있으면 해당 종목에 대한 인사, 없으면 기본 인사
+  const getInitialGreeting = () => {
+    if (stockData && stockData.name) {
+      return `안녕하세요! ${stockData.name}(${stockData.symbol})에 대해 상담하러 오셨군요.\n\n잠시만요, ${stockData.name}에 대한 제 분석을 정리해서 말씀드릴게요...`;
+    }
+    return persona.greeting;
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'greeting',
       role: 'assistant',
-      content: persona.greeting,
+      content: getInitialGreeting(),
       timestamp: new Date(),
     },
   ]);
@@ -69,13 +86,67 @@ export function AIConsultation({ characterType, holdings = [], onClose, onViewDe
   const [isLoading, setIsLoading] = useState(false);
   const [isTypingGreeting, setIsTypingGreeting] = useState(true);
   const [displayedGreeting, setDisplayedGreeting] = useState('');
+  const [hasInitialAnalysis, setHasInitialAnalysis] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 종목 데이터가 있으면 초기 분석 요청
+  useEffect(() => {
+    if (stockData && stockData.name && !hasInitialAnalysis) {
+      // 인사 메시지 타이핑이 끝나면 자동으로 초기 분석 요청
+      const timer = setTimeout(() => {
+        requestInitialAnalysis();
+      }, 2500); // 인사 메시지 후 잠시 대기
+      
+      return () => clearTimeout(timer);
+    }
+  }, [stockData, hasInitialAnalysis]);
+
+  // 초기 종목 분석 요청
+  const requestInitialAnalysis = async () => {
+    if (!stockData || hasInitialAnalysis) return;
+    
+    setHasInitialAnalysis(true);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/consultation/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characterType,
+          messages: [{
+            role: 'user',
+            content: `${stockData.name}(${stockData.symbol})에 대한 당신의 투자 관점과 분석을 말해주세요. 현재가 ${stockData.currentPrice?.toLocaleString() || '정보없음'}원입니다.`,
+          }],
+          holdings,
+          stockData,
+          isInitialAnalysis: true, // 초기 분석 플래그
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const analysisMessage: Message = {
+          id: `analysis-${Date.now()}`,
+          role: 'assistant',
+          content: data.data.content,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, analysisMessage]);
+      }
+    } catch (error) {
+      console.error('Initial analysis error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 첫 인사 메시지 타이핑 효과
   useEffect(() => {
-    const greeting = persona.greeting;
+    const greeting = getInitialGreeting();
     let currentIndex = 0;
     
     setDisplayedGreeting('');
@@ -98,7 +169,7 @@ export function AIConsultation({ characterType, holdings = [], onClose, onViewDe
         clearInterval(typingIntervalRef.current);
       }
     };
-  }, [persona.greeting]);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,6 +206,7 @@ export function AIConsultation({ characterType, holdings = [], onClose, onViewDe
             content: m.content,
           })),
           holdings,
+          stockData,  // 실시간 종목 데이터 전달
         }),
       });
 
@@ -177,14 +249,36 @@ export function AIConsultation({ characterType, holdings = [], onClose, onViewDe
       {/* Header */}
       <div className={`flex items-center gap-4 p-4 border-b border-dark-800 ${char.bgColor}`}>
         <CharacterAvatar character={characterType} size="lg" />
-        <div className="flex-1">
-          <h3 className="font-bold text-dark-100">{char.name}</h3>
-          <p className="text-sm text-dark-400">{char.role} | 1:1 상담</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-dark-100">{char.name}</h3>
+            <span className="text-xs text-dark-500">|</span>
+            <span className="text-xs text-dark-400">{char.role}</span>
+          </div>
+          {stockData && stockData.name ? (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-sm font-semibold text-brand-400">{stockData.name}</span>
+              <span className="text-xs text-dark-500 font-mono">{stockData.symbol}</span>
+              {stockData.currentPrice > 0 && (
+                <>
+                  <span className="text-xs text-dark-600">|</span>
+                  <span className="text-xs text-dark-300">{stockData.currentPrice.toLocaleString()}원</span>
+                  {stockData.changePercent !== 0 && (
+                    <span className={`text-xs ${stockData.changePercent > 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                      {stockData.changePercent > 0 ? '+' : ''}{stockData.changePercent.toFixed(2)}%
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-dark-400">1:1 상담</p>
+          )}
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-dark-800/50 transition-colors"
+            className="p-2 rounded-lg hover:bg-dark-800/50 transition-colors shrink-0"
           >
             <svg className="w-5 h-5 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -353,11 +447,12 @@ interface AIConsultationModalProps {
   onClose: () => void;
   characterType: CharacterType;
   holdings?: Holding[];
+  stockData?: StockData;  // 실시간 주식 데이터
   onViewDebate?: () => void;
   showDebateButton?: boolean;
 }
 
-export function AIConsultationModal({ isOpen, onClose, characterType, holdings, onViewDebate, showDebateButton = true }: AIConsultationModalProps) {
+export function AIConsultationModal({ isOpen, onClose, characterType, holdings, stockData, onViewDebate, showDebateButton = true }: AIConsultationModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -381,6 +476,7 @@ export function AIConsultationModal({ isOpen, onClose, characterType, holdings, 
         <AIConsultation
           characterType={characterType}
           holdings={holdings}
+          stockData={stockData}
           onClose={onClose}
           onViewDebate={onViewDebate}
           showDebateButton={showDebateButton}

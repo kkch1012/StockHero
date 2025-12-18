@@ -78,6 +78,8 @@ export async function POST(request: NextRequest) {
           targetPrice: msg.targetPrice,
           targetDate: msg.targetDate,
           priceRationale: msg.priceRationale,
+          dateRationale: msg.dateRationale,
+          methodology: msg.methodology,
           createdAt: saved.created_at,
         });
       } catch (e) {
@@ -93,6 +95,8 @@ export async function POST(request: NextRequest) {
           targetPrice: msg.targetPrice,
           targetDate: msg.targetDate,
           priceRationale: msg.priceRationale,
+          dateRationale: msg.dateRationale,
+          methodology: msg.methodology,
           createdAt: new Date().toISOString(),
         });
       }
@@ -105,8 +109,9 @@ export async function POST(request: NextRequest) {
       console.log('Failed to update session round:', e);
     }
 
-    // Get current targets summary
+    // Get current targets summary and consensus
     const targets = orchestrator.getTargets();
+    const consensus = orchestrator.getConsensus();
 
     return NextResponse.json({
       success: true,
@@ -116,6 +121,7 @@ export async function POST(request: NextRequest) {
         currentPrice: finalCurrentPrice,
         messages: savedMessages,
         targets,
+        consensus,  // 합의 도출 결과 (3명 모두 목표가 제시 시)
       },
     });
   } catch (error) {

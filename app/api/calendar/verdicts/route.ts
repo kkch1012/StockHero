@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// Mock Korean stocks for generating verdicts
+// Supabase Client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Mock Korean stocks for generating fallback verdicts
 const MOCK_STOCKS = [
   { code: '005930', name: '삼성전자', sector: '반도체' },
   { code: '000660', name: 'SK하이닉스', sector: '반도체' },
@@ -23,6 +30,16 @@ const MOCK_STOCKS = [
   { code: '068270', name: '셀트리온', sector: '바이오' },
   { code: '003670', name: '포스코홀딩스', sector: '철강' },
 ];
+
+// Sector lookup
+const SECTOR_MAP: Record<string, string> = {
+  '반도체': '반도체',
+  '2차전지': '2차전지',
+  '바이오': '바이오',
+  '자동차': '자동차',
+  '금융': '금융',
+  'IT서비스': 'IT서비스',
+};
 
 // Seeded random function for consistent dummy data
 function seededRandom(seed: number): number {
@@ -80,23 +97,30 @@ function generateDummyVerdict(dateStr: string) {
   };
 }
 
-// In-memory cache for generated verdicts (in production, use DB)
-const verdictCache: Record<string, {
-  date: string;
-  top5: Array<{
-    rank: number;
-    symbolCode: string;
-    symbolName: string;
-    sector: string;
-    avgScore: number;
-    claudeScore?: number;
-    geminiScore?: number;
-    gptScore?: number;
-    targetPrice?: number;
-    targetDate?: string;
-  }>;
-  isGenerated: boolean;
-}> = {};
+// Convert DB format to Calendar format
+function convertDBVerdictToCalendarFormat(dbVerdict: any): any {
+  const top5Items = dbVerdict.top5 || [];
+  
+  return {
+    date: dbVerdict.date,
+    top5: top5Items.map((item: any, idx: number) => {
+      const stockInfo = MOCK_STOCKS.find(s => s.code === item.symbol);
+      return {
+        rank: item.rank || idx + 1,
+        symbolCode: item.symbol,
+        symbolName: stockInfo?.name || item.name,
+        sector: stockInfo?.sector || '기타',
+        avgScore: item.avgScore || 4.0,
+        claudeScore: item.claudeScore || 0,
+        geminiScore: item.geminiScore || 0,
+        gptScore: item.gptScore || 0,
+        targetPrice: item.targetPrice || item.currentPrice || 0,
+        targetDate: item.targetDate || '',
+      };
+    }),
+    isGenerated: true, // AI generated data
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -104,11 +128,34 @@ export async function GET(request: NextRequest) {
     const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString());
     const month = parseInt(searchParams.get('month') || (new Date().getMonth() + 1).toString());
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    // 한국 시간 기준 오늘 날짜
+    const now = new Date();
+    const kstOffset = 9 * 60; // UTC+9
+    const kstTime = new Date(now.getTime() + (kstOffset + now.getTimezoneOffset()) * 60 * 1000);
+    const todayStr = kstTime.toISOString().split('T')[0];
+    const today = new Date(todayStr);
 
-    // Generate verdicts for each day of the month
+    // 1. DB에서 해당 월의 모든 verdict 조회
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+
+    const { data: dbVerdicts, error } = await supabase
+      .from('verdicts')
+      .select('date, top5, consensus_summary')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    // DB 데이터를 Map으로 변환
+    const dbVerdictMap: Record<string, any> = {};
+    if (dbVerdicts) {
+      for (const v of dbVerdicts) {
+        dbVerdictMap[v.date] = convertDBVerdictToCalendarFormat(v);
+      }
+    }
+
+    // 2. Generate verdicts for each day of the month
     const verdicts = [];
     const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -126,18 +173,18 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Check cache first
-      if (verdictCache[dateStr]) {
-        verdicts.push(verdictCache[dateStr]);
+      // DB에 데이터가 있으면 그것을 사용 (오늘 포함)
+      if (dbVerdictMap[dateStr]) {
+        verdicts.push(dbVerdictMap[dateStr]);
         continue;
       }
 
-      // For today, don't auto-generate - let user trigger it
+      // 오늘인데 DB 데이터가 없으면 스킵 (아직 생성 안됨)
       if (dateStr === todayStr) {
         continue;
       }
 
-      // For past dates, generate dummy data
+      // 과거 날짜인데 DB 데이터가 없으면 Mock 데이터 생성
       const verdict = generateDummyVerdict(dateStr);
       verdicts.push(verdict);
     }
@@ -145,6 +192,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: verdicts,
+      dbCount: Object.keys(dbVerdictMap).length,
     });
   } catch (error) {
     console.error('Calendar verdicts error:', error);

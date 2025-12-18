@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { DisclaimerBar, Header, CharacterAvatar, WatchlistButton, AIConsultationModal, MultiExpertConsultation } from '@/components';
+import { DisclaimerBar, Header, CharacterAvatar, WatchlistButton, StockSearchModal } from '@/components';
 import { CharacterDetailModal } from '@/components/CharacterDetailModal';
 import { CHARACTERS, CharacterInfo } from '@/lib/characters';
 import { useDebateHistory } from '@/lib/hooks';
@@ -20,6 +20,8 @@ interface Message {
   targetPrice?: number;
   targetDate?: string;
   priceRationale?: string;
+  dateRationale?: string;
+  methodology?: string;
   timestamp: string;
 }
 
@@ -195,9 +197,28 @@ function ChatBubble({
                   <div className="text-sm font-medium text-dark-200">{message.targetDate}</div>
                 </div>
               </div>
-              {message.priceRationale && (
-                <div className="mt-2 pt-2 border-t border-dark-700/50">
-                  <p className="text-xs text-dark-400">{message.priceRationale}</p>
+              {/* 분석 근거 */}
+              {(message.priceRationale || message.dateRationale) && (
+                <div className="mt-3 pt-3 border-t border-dark-700/50 space-y-2">
+                  {message.methodology && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs px-2 py-0.5 rounded bg-dark-700 text-dark-300">
+                        📊 {message.methodology}
+                      </span>
+                    </div>
+                  )}
+                  {message.priceRationale && (
+                    <div>
+                      <p className="text-xs text-dark-500 mb-1">목표가 산출 근거</p>
+                      <p className="text-xs text-dark-300 leading-relaxed">{message.priceRationale}</p>
+                    </div>
+                  )}
+                  {message.dateRationale && (
+                    <div>
+                      <p className="text-xs text-dark-500 mb-1">목표 달성 시점 근거</p>
+                      <p className="text-xs text-dark-300 leading-relaxed">{message.dateRationale}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -501,9 +522,8 @@ export default function BattlePage() {
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targets, setTargets] = useState<TargetInfo[]>([]);
-  const [consultCharacter, setConsultCharacter] = useState<CharacterType | null>(null);
-  const [isMultiConsultOpen, setIsMultiConsultOpen] = useState(false);
   const [realTimeInfo, setRealTimeInfo] = useState<RealTimeStockInfo | null>(null);
+  const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedMessageIds = useRef<Set<string>>(new Set()); // 이미 처리된 메시지 ID 추적
   const generatingRoundRef = useRef<number | null>(null); // 현재 생성 중인 라운드 추적
@@ -685,6 +705,8 @@ export default function BattlePage() {
           targetPrice?: number;
           targetDate?: string;
           priceRationale?: string;
+          dateRationale?: string;
+          methodology?: string;
         }, i: number) => ({
           id: `${sid}-${r}-${m.character}-${i}`, // 더 고유한 ID 생성
           character: m.character,
@@ -696,6 +718,8 @@ export default function BattlePage() {
           targetPrice: m.targetPrice,
           targetDate: m.targetDate,
           priceRationale: m.priceRationale,
+          dateRationale: m.dateRationale,
+          methodology: m.methodology,
           timestamp: new Date().toISOString(),
         }));
         
@@ -745,11 +769,26 @@ export default function BattlePage() {
               <div className="card mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-dark-800 flex items-center justify-center text-xl font-bold text-dark-300">
-                      {symbolInfo.name.charAt(0)}
-                    </div>
+                    {/* 종목 검색 버튼 */}
+                    <button
+                      onClick={() => setIsStockSearchOpen(true)}
+                      className="w-12 h-12 rounded-xl bg-dark-800 hover:bg-dark-700 border border-dark-700 hover:border-brand-500/50 flex items-center justify-center transition-all group"
+                      title="종목 검색"
+                    >
+                      <svg className="w-5 h-5 text-dark-400 group-hover:text-brand-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </button>
                     <div>
-                      <h1 className="text-xl font-bold text-dark-50">{symbolInfo.name}</h1>
+                      <div className="flex items-center gap-2">
+                        <h1 className="text-xl font-bold text-dark-50">{symbolInfo.name}</h1>
+                        <button
+                          onClick={() => setIsStockSearchOpen(true)}
+                          className="px-2 py-1 text-xs text-dark-500 hover:text-brand-400 hover:bg-dark-800 rounded transition-colors"
+                        >
+                          변경
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2 text-sm flex-wrap">
                         <span className="text-dark-500 font-mono">{symbol}</span>
                         <span className="text-dark-600">|</span>
@@ -853,17 +892,17 @@ export default function BattlePage() {
                             </div>
                             
                             {/* Button container */}
-                            <div className="relative flex justify-center">
+                            <div className="relative flex flex-col items-center gap-3">
                               <button
                                 onClick={handleNextRound}
                                 disabled={isLoading}
-                                className="group flex items-center gap-3 px-6 py-3 bg-dark-900 border border-dark-700 hover:border-brand-500/50 rounded-full transition-all hover:bg-dark-800 disabled:opacity-50"
+                                className="group flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 rounded-full transition-all shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 disabled:opacity-50 disabled:shadow-none"
                               >
                                 <div className="flex -space-x-2">
                                   {(['claude', 'gemini', 'gpt'] as const).map((charId) => (
                                     <div 
                                       key={charId}
-                                      className={`w-6 h-6 rounded-full border-2 border-dark-900 ${CHARACTERS[charId].bgColor} flex items-center justify-center`}
+                                      className={`w-6 h-6 rounded-full border-2 border-brand-600 ${CHARACTERS[charId].bgColor} flex items-center justify-center`}
                                     >
                                       <span className="text-[8px]">
                                         {CHARACTERS[charId].name.charAt(0)}
@@ -871,11 +910,11 @@ export default function BattlePage() {
                                     </div>
                                   ))}
                                 </div>
-                                <span className="text-sm font-medium text-dark-300 group-hover:text-dark-100 transition-colors">
+                                <span className="text-sm font-semibold text-white">
                                   다음 토론 엿보기
                                 </span>
                                 <svg 
-                                  className="w-4 h-4 text-dark-500 group-hover:text-brand-400 transition-colors group-hover:translate-x-0.5 duration-200" 
+                                  className="w-4 h-4 text-white/80 group-hover:translate-x-1 transition-transform duration-200" 
                                   fill="none" 
                                   viewBox="0 0 24 24" 
                                   stroke="currentColor"
@@ -886,11 +925,53 @@ export default function BattlePage() {
                             </div>
                           </div>
                           
-                          {/* Round indicator */}
-                          <div className="mt-4 text-center">
-                            <span className="text-xs text-dark-600">
-                              Round {round}/4 완료 • {4 - round}개 라운드 남음
-                            </span>
+                          {/* Engaging CTA message */}
+                          <div className="mt-5 text-center px-4">
+                            <div className="inline-flex flex-col sm:flex-row items-center gap-2 sm:gap-3 px-4 sm:px-5 py-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 rounded-xl animate-pulse-subtle relative overflow-hidden">
+                              {/* 배경 반짝이 효과 */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/5 to-transparent animate-text-shimmer" />
+                              
+                              <span className="text-2xl animate-bounce-slow relative z-10">🎯</span>
+                              <div className="text-center sm:text-left relative z-10">
+                                <p className="text-sm sm:text-base text-amber-100/90 leading-relaxed">
+                                  <span className="font-medium">마지막 토론까지 확인하면</span>
+                                  <br className="sm:hidden" />
+                                  <span className="text-amber-400 font-bold animate-glow"> 3명의 전문가가 합의한</span>
+                                </p>
+                                <p className="text-sm sm:text-base flex flex-wrap items-center justify-center sm:justify-start gap-1">
+                                  <span 
+                                    className="text-lg sm:text-xl font-bold bg-gradient-to-r from-amber-300 via-orange-400 to-amber-300 bg-clip-text text-transparent animate-text-shimmer bg-[length:200%_auto]"
+                                  >
+                                    최종 목표가
+                                  </span>
+                                  <span className="text-amber-100/90 font-medium">와</span>
+                                  <span 
+                                    className="text-lg sm:text-xl font-bold bg-gradient-to-r from-amber-300 via-orange-400 to-amber-300 bg-clip-text text-transparent animate-text-shimmer bg-[length:200%_auto]"
+                                    style={{ animationDelay: '0.5s' }}
+                                  >
+                                    달성 예상일
+                                  </span>
+                                  <span className="text-amber-100/90 font-medium">확인!</span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-center gap-2">
+                              <div className="flex gap-1">
+                                {[1, 2, 3, 4].map((r) => (
+                                  <div 
+                                    key={r} 
+                                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                      r <= round 
+                                        ? 'bg-brand-500 shadow-[0_0_6px_rgba(139,92,246,0.6)]' 
+                                        : 'bg-dark-700'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-xs text-dark-400">
+                                Round {round}/4 • {4 - round}개 남음
+                              </span>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -916,8 +997,8 @@ export default function BattlePage() {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Target Prices Summary */}
-              {targets.length > 0 && (
+              {/* Target Prices Summary - Only shown after debate is complete */}
+              {isComplete && targets.length > 0 && currentAnimatingId === null && pendingMessages.length === 0 && (
                 <TargetSummaryCard targets={targets} currentPrice={symbolInfo.price} />
               )}
 
@@ -932,6 +1013,8 @@ export default function BattlePage() {
                       ? (charMsgs.reduce((sum, m) => sum + m.score, 0) / charMsgs.length).toFixed(1)
                       : '-';
                     const latestTarget = charMsgs.filter(m => m.targetPrice).slice(-1)[0];
+                    // 토론 완료 후에만 목표가 표시
+                    const showTargetPrice = isComplete && currentAnimatingId === null && pendingMessages.length === 0;
                     return (
                       <button
                         key={charId}
@@ -947,7 +1030,7 @@ export default function BattlePage() {
                         </div>
                         <div className="text-right">
                           <div className={`text-sm font-semibold ${char.color}`}>{avgScore}</div>
-                          {latestTarget?.targetPrice && (
+                          {showTargetPrice && latestTarget?.targetPrice && (
                             <div className="text-xs text-dark-500">
                               {latestTarget.targetPrice.toLocaleString()}원
                             </div>
@@ -958,33 +1041,17 @@ export default function BattlePage() {
                   })}
                 </div>
 
-                {/* AI 상담 버튼 */}
-                <div className="mt-4 pt-4 border-t border-dark-700/50 space-y-2">
-                  <p className="text-xs text-dark-500 text-center mb-3">AI 전문가에게 내 종목 상담받기</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['claude', 'gemini', 'gpt'] as const).map((charId) => {
-                      const char = CHARACTERS[charId];
-                      return (
-                        <button
-                          key={charId}
-                          onClick={() => setConsultCharacter(charId)}
-                          className={`p-2 rounded-lg ${char.bgColor} hover:opacity-80 transition-all flex flex-col items-center gap-1`}
-                        >
-                          <CharacterAvatar character={charId} size="sm" />
-                          <span className="text-[10px] text-dark-300 truncate w-full text-center">상담</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <button
-                    onClick={() => setIsMultiConsultOpen(true)}
-                    className="w-full mt-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                {/* AI 상담 링크 */}
+                <div className="mt-4 pt-4 border-t border-dark-700/50">
+                  <Link
+                    href="/consulting"
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-brand-500/20 to-brand-600/20 border border-brand-500/30 text-brand-400 text-sm font-medium hover:from-brand-500/30 hover:to-brand-600/30 transition-all flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    3명의 전문가 모두에게 상담받기
-                  </button>
+                    AI 전문가에게 상담받기
+                  </Link>
                 </div>
               </div>
 
@@ -1030,20 +1097,11 @@ export default function BattlePage() {
         onClose={handleCloseModal}
       />
 
-      {/* AI Consultation Modal */}
-      <AIConsultationModal
-        isOpen={consultCharacter !== null}
-        onClose={() => setConsultCharacter(null)}
-        characterType={consultCharacter || 'claude'}
-        showDebateButton={false}
-      />
-
-      {/* Multi Expert Consultation Modal */}
-      <MultiExpertConsultation
-        isOpen={isMultiConsultOpen}
-        onClose={() => setIsMultiConsultOpen(false)}
-        stockSymbol={symbol}
-        stockName={symbolInfo.name}
+      {/* Stock Search Modal */}
+      <StockSearchModal
+        isOpen={isStockSearchOpen}
+        onClose={() => setIsStockSearchOpen(false)}
+        currentSymbol={symbol}
       />
     </>
   );

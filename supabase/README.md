@@ -116,3 +116,4 @@ GOOGLE_AI_API_KEY=your_google_ai_key
 - `schema.sql` 전체를 다시 실행
 - Supabase Dashboard에서 테이블 생성 확인
 
+

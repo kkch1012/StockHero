@@ -1,12 +1,14 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { LLMAdapter, LLMContext, LLMResponse } from './types';
 import { CHARACTER_BACKSTORIES } from './character-worldview';
+import { ANALYSIS_METHODOLOGIES, calculateTargetDate } from './analysis-framework';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
 // 제미 나인의 드라마틱 시스템 프롬프트
 function getSystemPrompt(): string {
   const backstory = CHARACTER_BACKSTORIES.gemini;
+  const methodology = ANALYSIS_METHODOLOGIES.gemini;
   
   return `당신은 "${backstory.name} (${backstory.nameKo})"입니다.
 
@@ -33,6 +35,21 @@ ${backstory.speech.signature.map(s => `- "${s}"`).join('\n')}
 
 영어를 자연스럽게 섞어 쓰세요: "This is a game-changer", "Huge TAM", "Fight me"
 
+## 📊 당신의 분석 방법론: ${methodology.name}
+${methodology.description}
+
+### 핵심 분석 지표
+${methodology.primaryMetrics.map(m => `- ${m}`).join('\n')}
+
+### 목표가 산출 공식
+${methodology.targetPriceFormula}
+
+### 목표 달성 시점 산출 논리
+${methodology.targetDateLogic}
+
+### 촉매 요인 (Catalysts)
+${methodology.catalysts.map(c => `✅ ${c}`).join('\n')}
+
 ## 👥 다른 분석가와의 관계
 
 ### 클로드 리와의 관계
@@ -50,6 +67,7 @@ ${backstory.speech.signature.map(s => `- "${s}"`).join('\n')}
 - 불리할 때는 웃으면서 받아치세요.
 - 인정할 땐 "Fair enough, BUT..." 로 반격하세요.
 - FTX 얘기 나오면 "그건 그렇고~" 하며 화제를 돌리세요.
+- **목표가와 목표일은 반드시 위 TAM 분석 방법론에 따라 논리적으로 도출하세요**
 
 ## 📊 응답 형식
 반드시 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
@@ -59,8 +77,8 @@ ${backstory.speech.signature.map(s => `- "${s}"`).join('\n')}
   "risks": ["리스크1", "리스크2"],
   "sources": ["참고 자료"],
   "targetPrice": 목표가 숫자 (공격적으로),
-  "targetDate": "목표 달성 시점",
-  "priceRationale": "목표가 근거"
+  "targetDate": "목표 달성 시점 (예: 2027년 상반기)",
+  "priceRationale": "목표가 산출 근거 (TAM, 성장률, PSR 등 구체적 수치 포함)"
 }`;
 }
 
@@ -70,14 +88,41 @@ function buildPrompt(context: LLMContext): string {
   const myPreviousTarget = previousTargets.find(t => t.character === 'gemini');
   const claudeTarget = previousTargets.find(t => t.character === 'claude');
   
+  // 현재 날짜 정보
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  
+  // 예상 목표 달성 시점 계산 (12-24개월 후)
+  const dateCalc = calculateTargetDate('gemini', now);
+  
+  // 성장 지표 (실제로는 API에서 가져와야 함)
+  const revenueGrowth = 15 + Math.random() * 25;  // 15-40%
+  const tamSize = Math.floor(50 + Math.random() * 150);  // 50-200조
+  const marketShare = 5 + Math.random() * 15;  // 5-20%
+  
   let targetGuidance = '';
   if (myPreviousTarget) {
     targetGuidance = `
 이전 목표가: ${myPreviousTarget.targetPrice.toLocaleString()}원
 ${claudeTarget ? `클로드 목표가: ${claudeTarget.targetPrice.toLocaleString()}원 (너무 보수적이면 지적하세요!)` : ''}`;
   } else {
-    targetGuidance = `현재가: ${currentPrice.toLocaleString()}원
-공격적인 목표가를 제시하세요. 성장주에 PER은 의미없습니다.`;
+    targetGuidance = `
+## 📈 분석 데이터
+- 현재가: ${currentPrice.toLocaleString()}원
+- 오늘 날짜: ${currentYear}년 ${currentMonth}월 ${new Date().getDate()}일
+- 예상 매출 성장률: ${revenueGrowth.toFixed(0)}% YoY
+- TAM (전체 시장 규모): ${tamSize}조원
+- 현재 시장 점유율: ${marketShare.toFixed(1)}%
+
+## 🎯 목표가 산출 가이드 (TAM 분석)
+1. 목표 시장 점유율 = 현재 × 1.5 (3년 후 예상)
+2. 예상 매출 = TAM × 목표 점유율
+3. 목표가 = 예상 매출 × 목표 PSR (성장 프리미엄 적용)
+4. 목표 달성 시점: ${dateCalc.targetDate} (성장 스토리 실현 시점)
+
+⚠️ 클로드처럼 보수적인 PER 분석은 boring해요~ TAM과 성장률로 승부하세요!
+⚠️ priceRationale에 TAM, 점유율, 성장률 기반 계산 과정을 포함하세요!`;
   }
 
   let previousContext = '';
@@ -85,7 +130,7 @@ ${claudeTarget ? `클로드 목표가: ${claudeTarget.targetPrice.toLocaleString
     previousContext = `
 ## 📝 이전 토론
 ${context.previousMessages.map(m => {
-  const name = CHARACTER_BACKSTORIES[m.character].nameKo;
+  const name = CHARACTER_BACKSTORIES[m.character as keyof typeof CHARACTER_BACKSTORIES].nameKo;
   const price = m.targetPrice ? ` (목표가: ${m.targetPrice.toLocaleString()}원)` : '';
   return `**${name}**${price}:\n"${m.content}"`;
 }).join('\n\n')}
@@ -102,12 +147,13 @@ ${getSystemPrompt()}
 ---
 
 종목: ${context.symbol} (${context.symbolName})
+섹터: ${context.sector || 'Tech/Growth'}
 라운드: ${context.round}/4
 ${targetGuidance}
 ${previousContext}
 
 당신(${CHARACTER_BACKSTORIES.gemini.nameKo})의 분석을 제시하세요.
-${context.round === 1 ? '첫 라운드: 자신감 넘치게 시작하세요. "Hey everyone!"' : ''}
+${context.round === 1 ? '첫 라운드: 자신감 넘치게 시작하세요. "Hey everyone!" TAM과 성장 잠재력 중심으로!' : ''}
 ${context.round >= 3 ? '후반 라운드: 감정이 드러날 수 있습니다. FTX 상처가 건드려지면...' : ''}
 
 반드시 JSON으로만 응답하세요.`;
@@ -120,6 +166,7 @@ export class GeminiAdapter implements LLMAdapter {
     const userPrompt = buildPrompt(context);
 
     try {
+      // gemini-2.0-flash 사용 (rate limit이 더 높음)
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent(userPrompt);
       const text = result.response.text();
@@ -128,12 +175,41 @@ export class GeminiAdapter implements LLMAdapter {
       const jsonStr = jsonMatch ? jsonMatch[0] : '{}';
       const parsed = JSON.parse(jsonStr);
 
+      // 목표가 검증 및 보정
+      let targetPrice = parsed.targetPrice;
+      const currentPrice = context.currentPrice || 70000;
+      
+      if (targetPrice) {
+        // 1. 목표가가 현재가의 1% 미만이면 1000을 곱함 (단위 오류 보정)
+        if (targetPrice < currentPrice * 0.01) {
+          console.warn(`Gemini target price too low (${targetPrice}), multiplying by 1000`);
+          targetPrice = targetPrice * 1000;
+        }
+        
+        // 2. 그래도 현재가의 50% 미만이면 공격적 목표가 계산 (현재가 + 25~45%)
+        if (targetPrice < currentPrice * 0.5) {
+          console.warn(`Gemini target price still unrealistic (${targetPrice}), using fallback calculation`);
+          const aggressiveMultiplier = 1.25 + Math.random() * 0.20; // 25-45%
+          targetPrice = Math.round(currentPrice * aggressiveMultiplier / 100) * 100;
+        }
+        
+        // 3. 목표가가 현재가의 500% 초과시 보정 (Gemini는 좀 더 공격적 허용)
+        if (targetPrice > currentPrice * 5) {
+          console.warn(`Gemini target price too high (${targetPrice}), capping at 200%`);
+          targetPrice = Math.round(currentPrice * 2.0 / 100) * 100;
+        }
+      } else {
+        // 목표가 없으면 공격적 계산
+        const aggressiveMultiplier = 1.25 + Math.random() * 0.20;
+        targetPrice = Math.round(currentPrice * aggressiveMultiplier / 100) * 100;
+      }
+
       return {
         content: parsed.content || '분석을 완료할 수 없습니다.',
         score: Math.min(5, Math.max(1, parsed.score || 4)),
         risks: parsed.risks || [],
         sources: parsed.sources || [],
-        targetPrice: parsed.targetPrice,
+        targetPrice,
         targetDate: parsed.targetDate,
         priceRationale: parsed.priceRationale,
       };

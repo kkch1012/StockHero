@@ -61,31 +61,53 @@ const TARGET_MULTIPLIERS: Record<CharacterType, { min: number; max: number }> = 
   gpt: { min: 1.05, max: 1.15 }, // 5-15% (보수적)
 };
 
-// 목표 기간 (월)
+// 목표 기간 (월) - 항상 미래 날짜 보장
 const TARGET_DATE_RANGES: Record<CharacterType, { min: number; max: number }> = {
-  claude: { min: 3, max: 6 },
-  gemini: { min: 6, max: 12 },
-  gpt: { min: 1, max: 3 },
+  claude: { min: 3, max: 9 },    // 3-9개월 후 (펀더멘털 분석)
+  gemini: { min: 12, max: 24 },  // 1-2년 후 (성장주 투자)
+  gpt: { min: 6, max: 12 },      // 6-12개월 후 (리스크 관리)
 };
 
-// 목표가 근거 (캐릭터별 스타일)
-const PRICE_RATIONALES: Record<CharacterType, string[]> = {
-  claude: [
-    '실적 개선과 밸류에이션 정상화를 반영한 목표가입니다. 숫자는 거짓말하지 않습니다.',
-    '펀더멘털 분석 기반 적정 가치입니다. 감정이 아닌 데이터로 산출했습니다.',
-    '업종 평균 PER과 예상 EPS 성장률을 적용한 목표가입니다.',
-  ],
-  gemini: [
-    '성장 모멘텀을 최대한 반영했습니다. 보수적인 분들은 놀라시겠지만, 이게 현실이에요.',
-    '신사업 기회와 TAM 확대를 고려한 공격적 목표가입니다. Fight me.',
-    '혁신 프리미엄을 반영했습니다. 테슬라 때도 사람들이 미쳤다고 했었죠.',
-  ],
-  gpt: [
-    '거시경제 리스크를 반영한 보수적 목표가입니다. 살아남아야 다음이 있어.',
-    '변동성 확대 가능성을 고려해 안전마진을 적용했습니다.',
-    '40년 경험에 기반한 현실적 목표가입니다.',
-  ],
-};
+// 목표가 근거 계산 함수
+function generatePriceRationale(
+  character: CharacterType,
+  currentPrice: number,
+  targetPrice: number,
+  random: () => number
+): string {
+  const changePercent = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
+  const per = (10 + random() * 15).toFixed(1);
+  const targetPER = (parseFloat(per) * (1.1 + random() * 0.2)).toFixed(1);
+  const roe = (8 + random() * 12).toFixed(1);
+  const growthRate = (5 + random() * 20).toFixed(1);
+  const debtRatio = (30 + random() * 40).toFixed(0);
+  const tamSize = Math.floor(50 + random() * 150);
+  const marketShare = (5 + random() * 10).toFixed(1);
+  const riskDiscount = (5 + random() * 10).toFixed(1);
+  
+  switch (character) {
+    case 'claude':
+      return `[펀더멘털 분석] 현재 PER ${per}배 → 적정 PER ${targetPER}배 전환 예상. ` +
+        `EPS 성장률 ${growthRate}% 적용, ROE ${roe}% 기반 프리미엄 반영. ` +
+        `안전마진 10% 적용하여 목표가 ${targetPrice.toLocaleString()}원 (+${changePercent}%) 산출. ` +
+        `숫자는 거짓말하지 않습니다.`;
+    
+    case 'gemini':
+      return `[TAM 분석] 전체 시장 규모 ${tamSize}조원, 현재 점유율 ${marketShare}% → 목표 점유율 ${(parseFloat(marketShare) * 1.5).toFixed(1)}%. ` +
+        `연간 성장률 ${growthRate}% 기반 PSR 프리미엄 적용. ` +
+        `혁신 모멘텀 반영하여 목표가 ${targetPrice.toLocaleString()}원 (+${changePercent}%). ` +
+        `Fight me.`;
+    
+    case 'gpt':
+      return `[리스크 조정 분석] 기본 상승 여력 15%에서 리스크 할인율 ${riskDiscount}% 적용. ` +
+        `부채비율 ${debtRatio}%, 거시 불확실성 고려. ` +
+        `보수적 목표가 ${targetPrice.toLocaleString()}원 (+${changePercent}%) 산출. ` +
+        `살아남아야 다음이 있어.`;
+    
+    default:
+      return `목표가 ${targetPrice.toLocaleString()}원 (+${changePercent}%)`;
+  }
+}
 
 // 변수 치환 함수
 function replaceVariables(
@@ -112,11 +134,13 @@ function replaceVariables(
   const targetPrice = context.currentPrice ? 
     Math.round(context.currentPrice * (1.1 + random() * 0.3) / 100) * 100 : 80000;
   
-  // 목표 날짜
-  const monthsAhead = 3 + Math.floor(random() * 6);
+  // 목표 날짜 (항상 미래)
+  const monthsAhead = 6 + Math.floor(random() * 12);  // 6-18개월 후
   const targetDate = new Date();
   targetDate.setMonth(targetDate.getMonth() + monthsAhead);
-  const targetDateStr = `${targetDate.getFullYear()}년 ${targetDate.getMonth() + 1}월`;
+  const targetYear = targetDate.getFullYear();
+  const targetQuarter = Math.ceil((targetDate.getMonth() + 1) / 3);
+  const targetDateStr = `${targetYear}년 ${targetQuarter}분기`;
   
   return template
     .replace(/{name}/g, context.symbolName || '종목')
@@ -254,16 +278,40 @@ export class MockLLMAdapter implements LLMAdapter {
       targetPrice = Math.round(currentPrice * multiplier / 100) * 100;
     }
     
-    // 목표 날짜
+    // 목표 날짜 (캐릭터별 표현 방식)
     const dateRange = TARGET_DATE_RANGES[this.characterType];
     const monthsAhead = Math.floor(dateRange.min + random() * (dateRange.max - dateRange.min));
     const targetDateObj = new Date();
     targetDateObj.setMonth(targetDateObj.getMonth() + monthsAhead);
-    const targetDate = `${targetDateObj.getFullYear()}년 ${targetDateObj.getMonth() + 1}월`;
+    const targetYear = targetDateObj.getFullYear();
+    const targetMonth = targetDateObj.getMonth() + 1;
+    const targetQuarter = Math.ceil(targetMonth / 3);
     
-    // 목표가 근거
-    const rationaleIndex = Math.floor(random() * PRICE_RATIONALES[this.characterType].length);
-    const priceRationale = PRICE_RATIONALES[this.characterType][rationaleIndex];
+    // 캐릭터별 날짜 표현 및 근거
+    let targetDate: string;
+    let dateRationale: string;
+    
+    if (this.characterType === 'claude') {
+      // 클로드: 분기 단위 (펀더멘털 분석)
+      targetDate = `${targetYear}년 ${targetQuarter}분기`;
+      dateRationale = `[실적 기반 분석] 향후 ${Math.ceil(monthsAhead / 3)}개 분기 실적 발표 후 밸류에이션 갭 해소 예상. ` +
+        `다음 분기 실적에서 EPS 성장 확인 시 목표가 달성 촉매로 작용.`;
+    } else if (this.characterType === 'gemini') {
+      // 제미: 연도 또는 상/하반기 (장기 성장)
+      targetDate = targetMonth <= 6 
+        ? `${targetYear}년 상반기` 
+        : `${targetYear}년 하반기`;
+      dateRationale = `[성장 스토리 분석] 신사업/신제품 출시 효과가 본격화되는 ${monthsAhead}개월 후 목표 달성 예상. ` +
+        `시장 점유율 확대와 TAM 성장이 실현되는 시점.`;
+    } else {
+      // GPT: 구체적 날짜 (리스크 관리)
+      targetDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(new Date(targetYear, targetMonth, 0).getDate()).padStart(2, '0')}`;
+      dateRationale = `[리스크 해소 분석] 거시경제 불확실성 해소에 ${monthsAhead}개월 소요 예상. ` +
+        `다음 FOMC 회의 및 주요 경제지표 발표 후 방향성 확인.`;
+    }
+    
+    // 목표가 근거 (논리적 계산 기반)
+    const priceRationale = generatePriceRationale(this.characterType, currentPrice, targetPrice, random);
 
     // 약간의 지연으로 실제 API 호출처럼 보이게
     await new Promise(resolve => setTimeout(resolve, 500 + random() * 1000));
@@ -276,6 +324,12 @@ export class MockLLMAdapter implements LLMAdapter {
       targetPrice,
       targetDate,
       priceRationale,
+      dateRationale,
+      methodology: this.characterType === 'claude' 
+        ? '펀더멘털 밸류에이션 분석' 
+        : this.characterType === 'gemini' 
+          ? '성장주 TAM 분석' 
+          : '거시경제 리스크 조정 분석',
     };
   }
 }

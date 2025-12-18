@@ -8,9 +8,9 @@ import { UserMenu } from './UserMenu';
 const NAV_LINKS = [
   { href: '/verdict', label: 'Top 5' },
   { href: '/heroes', label: 'Stock Heros' },
-  // { href: '/paper-trading', label: 'Paper Trading' }, // TODO: 나중에 추가
+  { href: '/battle/005930', label: 'Watch Debate' },
+  { href: '/consulting', label: 'Consulting' },
   { href: '/archive', label: 'Archive' },
-  { href: '/community', label: 'Community' },
 ];
 
 export function Header() {
@@ -49,12 +49,6 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/battle/005930"
-                className="ml-2 btn-primary text-sm px-3 lg:px-4 py-2"
-              >
-                Watch Debate
-              </Link>
               <div className="ml-3 lg:ml-4 pl-3 lg:pl-4 border-l border-dark-700">
                 <UserMenu />
               </div>
@@ -99,13 +93,6 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
-                <Link
-                  href="/battle/005930"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="mt-2 btn-primary text-sm px-4 py-2.5 text-center"
-                >
-                  Watch Debate
-                </Link>
               </div>
             </div>
           )}

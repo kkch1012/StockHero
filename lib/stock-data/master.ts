@@ -577,3 +577,4 @@ export function getAllSymbols(): string[] {
   return STOCK_MASTER.map(s => s.symbol);
 }
 
+
