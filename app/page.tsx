@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DisclaimerBar, Header, CharacterAvatar, AIConsultationModal, MissedProfitCalculator } from '@/components';
+import { DisclaimerBar, Header, CharacterAvatar, AIConsultationModal, MissedProfitCalculator, UrgentAlertBanner } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
 import { CalendarSection } from './CalendarSection';
 import type { CharacterType } from '@/lib/llm/types';
@@ -20,6 +20,12 @@ export default function HomePage() {
     <>
       <DisclaimerBar />
       <Header />
+      
+      {/* Urgent Alert Banner */}
+      <div className="relative z-40">
+        <UrgentAlertBanner />
+      </div>
+      
       <main className="min-h-screen relative overflow-hidden">
         {/* Background Effects */}
         <div className="fixed inset-0 bg-dark-950" />

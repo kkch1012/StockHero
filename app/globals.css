@@ -164,3 +164,16 @@
     transform: scale(1.01);
   }
 }
+
+@keyframes scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-scan {
+  animation: scan 3s ease-in-out infinite;
+}
