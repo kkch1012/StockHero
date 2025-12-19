@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { DisclaimerBar, Header, CharacterAvatar, AIPortfolioSimulator } from '@/components';
+import { DisclaimerBar, Header, CharacterAvatar } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
 import {
   generatePortfolioHistory,
@@ -478,11 +478,6 @@ export default function ArchivePage() {
           <div className="card mb-8">
             <h3 className="font-semibold text-dark-100 mb-6">Portfolio Performance vs Benchmark</h3>
             <PortfolioChart data={portfolioHistory} />
-          </div>
-
-          {/* AI Portfolio Builder Section */}
-          <div className="mb-8">
-            <AIPortfolioSimulator />
           </div>
 
           {/* Two Column Layout */}

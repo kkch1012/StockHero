@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DisclaimerBar, Header, CharacterAvatar, AIConsultationModal, MultiExpertConsultation, StockSearchModal, useToast } from '@/components';
+import { DisclaimerBar, Header, CharacterAvatar, AIConsultationModal, MultiExpertConsultation, StockSearchModal, AIPortfolioSimulator, useToast } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
 import type { CharacterType } from '@/lib/types';
 
@@ -330,6 +330,11 @@ export default function ConsultingPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* AI Portfolio Builder Section */}
+            <div className="mt-12">
+              <AIPortfolioSimulator />
             </div>
           </div>
         </div>
