@@ -507,83 +507,6 @@ ${newsItems.map(n => `- ${n.title}`).join('\n')}
     let responseContent: string;
 
     // AI API 호출 시 실패하면 폴백 응답 사용
-    const getFallbackResponse = (char: CharacterType, question: string, stock?: StockData, isInitial?: boolean): string => {
-      // 초기 분석인 경우 종목 특화 폴백 제공
-      if (isInitial && stock) {
-        const initialFallbacks: Record<CharacterType, string> = {
-          claude: `${stock.name}(${stock.symbol})에 대해 분석해보겠습니다.
-
-📊 **현재 투자 의견: 중립(HOLD)**
-
-현재가 ${stock.currentPrice.toLocaleString()}원 기준으로 펀더멘털 분석을 해보면:
-
-1. **밸류에이션 관점**: 현재 주가 수준은 동종업계 평균 대비 적정 수준으로 보입니다. PER, PBR 지표를 추가로 확인해보시길 권합니다.
-
-2. **재무 안정성**: 재무제표 상 부채비율과 유동비율을 점검해볼 필요가 있습니다. 안정적인 현금흐름이 중요합니다.
-
-3. **주요 리스크**: 업황 변동성과 경쟁 심화가 주요 리스크 요인입니다.
-
-💡 구체적인 투자 결정 전에 최근 분기 실적과 컨센서스 대비 실적을 확인해보시겠어요?`,
-          gemini: `${stock.name} 분석해볼게요 👋
-
-솔직히 말해서 ${stock.name}은 흥미로운 종목이에요. 다만, 몇 가지 살펴볼 점이 있어요.
-
-📊 **현재 투자 의견: 관심 종목(WATCH)**
-
-현재가 ${stock.currentPrice.toLocaleString()}원인데요,
-
-1. **성장 스토리**: 해당 섹터의 TAM(Total Addressable Market)은 확대 중이에요. 장기적으로 성장 여력이 있는 분야입니다.
-
-2. **밸류에이션 체크**: 현재 주가 수준이 성장성 대비 적정한지 꼭 확인해보세요. 좋은 기업도 비싸게 사면 좋은 투자가 아니에요.
-
-3. **리스크 인식**: 성장주는 기대치가 높아서 실적 미스 시 큰 폭락이 올 수 있어요. ${stock.change >= 0 ? '지금 상승세지만' : '현재 조정 구간인데'}, 단기 변동성은 항상 감안해야 해요.
-
-4. **투자 조언**: 분할 매수를 추천드리고, 포트폴리오의 20-30% 이내로 성장주 비중을 유지하세요.
-
-더 궁금한 부분이 있으시면 말씀해주세요!`,
-          gpt: `${stock.name}에 대해 말해주겠네.
-
-🛡️ **현재 투자 의견: 신중한 접근 권고**
-
-40년간 시장을 봐온 경험에 비춰보면, 현재가 ${stock.currentPrice.toLocaleString()}원 수준에서는 이렇게 생각해.
-
-1. **거시경제 환경**: 현재 금리와 환율 상황이 이 종목에 미치는 영향을 고려해야 해. 특히 섹터 전반의 흐름을 봐야 하지.
-
-2. **리스크 관리**: 어떤 종목이든 포트폴리오의 적정 비중을 지키는 게 중요해. 전체 자산의 5-10% 이내로 관리하길 권해.
-
-3. **분할 매수**: 한 번에 몰빵하지 말고, 3-4회 나눠서 진입하는 게 리스크를 줄이는 방법이야.
-
-시장은 예측 불가능한 일들이 많아. 현금 비중은 항상 일정 부분 유지하고 있나?`,
-        };
-        return initialFallbacks[char];
-      }
-
-      const fallbacks: Record<CharacterType, string> = {
-        claude: `좋은 질문입니다. 현재 시장 상황을 냉철하게 분석해보겠습니다.
-
-"${question.slice(0, 50)}..."에 대해 말씀드리자면,
-
-숫자는 거짓말하지 않습니다. 펀더멘털 관점에서 보면, 현재 주가는 적정 가치 대비 다소 변동성이 있는 구간에 있습니다. PER, PBR 등 밸류에이션 지표를 종합적으로 검토해보시길 권합니다.
-
-다만, 투자 판단은 개인의 리스크 성향과 투자 기간에 따라 달라질 수 있으므로, 충분한 분석 후 결정하시기 바랍니다.`,
-        gemini: `Hey! 정말 exciting한 질문이네요! 🚀
-
-"${question.slice(0, 50)}..."에 대해서 말이죠,
-
-This is where it gets interesting! 성장주 관점에서 보면, 미래 성장 잠재력이 핵심이에요. TAM(Total Addressable Market)이 계속 확대되고 있는 분야라면 장기적으로 유망하다고 봅니다.
-
-물론 단기 변동성은 있을 수 있지만, 혁신적인 기업들은 결국 시장을 리드하게 되죠. Fight me if you disagree! 😎`,
-        gpt: `자네의 질문에 대해 40년 경험을 바탕으로 말해주겠네.
-
-"${question.slice(0, 50)}..."
-
-시장에서는 항상 리스크를 먼저 고려해야 해. 현재 거시경제 환경을 보면, 금리와 환율 동향이 중요한 변수야. 
-
-포트폴리오 관점에서는 분산투자가 핵심이고, 어떤 상황에서도 현금 비중을 일정 부분 유지하는 게 좋아. 시장은 예측 불가능한 것들이 많으니까.`,
-      };
-      return fallbacks[char];
-    };
-
     try {
       // OpenRouter가 설정되어 있으면 우선 사용
       const useOpenRouter = !!process.env.OPENROUTER_API_KEY;
@@ -609,9 +532,14 @@ This is where it gets interesting! 성장주 관점에서 보면, 미래 성장 
         }
       }
     } catch (apiError) {
-      console.error(`${characterType} API failed, using fallback response:`, apiError);
-      const lastUserMessage = conversationMessages.filter(m => m.role === 'user').pop();
-      responseContent = getFallbackResponse(characterType, lastUserMessage?.content || '', stockData, isInitialAnalysis);
+      console.error(`${characterType} API failed:`, apiError);
+      // 더미 데이터 없이 에러 반환
+      return NextResponse.json({
+        success: false,
+        error: 'AI 응답 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        message: apiError instanceof Error ? apiError.message : 'API call failed',
+        characterType,
+      }, { status: 503 });
     }
 
     return NextResponse.json({

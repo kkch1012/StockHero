@@ -410,33 +410,7 @@ ${stockList}
   return [];
 }
 
-// 폴백 데이터 (AI 실패 시)
-function getFallbackRecommendations(heroId: string): any[] {
-  const fallbacks: Record<string, any[]> = {
-    claude: [
-      { rank: 1, symbol: '005930', name: '삼성전자', score: 4.5, targetPriceMultiplier: 1.25, reason: 'PBR 역사적 저점. 메모리 업황 회복 기대. 현금 40조원 이상 보유.', risks: ['중국 리스크', '스마트폰 둔화'] },
-      { rank: 2, symbol: '000660', name: 'SK하이닉스', score: 4.3, targetPriceMultiplier: 1.20, reason: 'HBM 시장 선도. AI 수요 수혜. 영업이익률 개선 뚜렷.', risks: ['메모리 가격 변동성', '설비투자 부담'] },
-      { rank: 3, symbol: '105560', name: 'KB금융', score: 4.1, targetPriceMultiplier: 1.18, reason: 'PBR 0.5배 심각한 저평가. 배당수익률 5%+. ROE 개선 추세.', risks: ['금리 인하 영향', '가계부채'] },
-      { rank: 4, symbol: '035420', name: 'NAVER', score: 4.0, targetPriceMultiplier: 1.30, reason: '검색 독점. 커머스/핀테크 성장. PER 20배 미만 저평가.', risks: ['규제 리스크', '경쟁 심화'] },
-      { rank: 5, symbol: '017670', name: 'SK텔레콤', score: 3.9, targetPriceMultiplier: 1.15, reason: '안정적 현금 창출. AI 인프라 확대. 배당 4%+.', risks: ['통신비 인하', '5G 투자비용'] },
-    ],
-    gemini: [
-      { rank: 1, symbol: '000660', name: 'SK하이닉스', score: 5.0, targetPriceMultiplier: 1.45, reason: 'HBM 세계 1위! AI 시대 핵심 수혜주. This is THE AI play! 🚀', risks: ['높은 변동성', '경쟁사 추격'] },
-      { rank: 2, symbol: '373220', name: 'LG에너지솔루션', score: 4.7, targetPriceMultiplier: 1.40, reason: '글로벌 배터리 톱티어. EV 전환은 Secular trend. Huge TAM!', risks: ['원자재 가격', '중국 경쟁'] },
-      { rank: 3, symbol: '035720', name: '카카오', score: 4.5, targetPriceMultiplier: 1.60, reason: '한국판 슈퍼앱. AI 적용 확대. 바닥에서 반등 시작!', risks: ['규제 불확실성', '경영 리스크'] },
-      { rank: 4, symbol: '006400', name: '삼성SDI', score: 4.3, targetPriceMultiplier: 1.35, reason: '전고체 배터리 기술 선도. BMW, 리비안 고객사 확보.', risks: ['2차전지 경쟁', '원가 부담'] },
-      { rank: 5, symbol: '035420', name: 'NAVER', score: 4.1, targetPriceMultiplier: 1.35, reason: 'AI 검색 혁신. 하이퍼클로바X. 한국의 구글 될 잠재력.', risks: ['빅테크 경쟁', '투자 비용'] },
-    ],
-    gpt: [
-      { rank: 1, symbol: '017670', name: 'SK텔레콤', score: 4.2, targetPriceMultiplier: 1.12, reason: '경기 방어적 통신업. 배당 4%+. 40년간 봐온 결과, 위기 때 버팁니다.', risks: ['성장성 제한', '통신비 인하'] },
-      { rank: 2, symbol: '105560', name: 'KB금융', score: 4.0, targetPriceMultiplier: 1.10, reason: '국내 최대 금융지주. 배당 5%+. 살아남는 자가 이깁니다.', risks: ['금리 민감도', '가계부채'] },
-      { rank: 3, symbol: '030200', name: 'KT', score: 3.9, targetPriceMultiplier: 1.12, reason: '통신 + AI 인프라. 배당 4%+. 조급하지 말고 천천히.', risks: ['성장 정체', '경쟁 심화'] },
-      { rank: 4, symbol: '032830', name: '삼성생명', score: 3.8, targetPriceMultiplier: 1.10, reason: '보험업 선두. 금리 상승 수혜. 위기 때 보험주가 버팁니다.', risks: ['저금리 역풍', '보험 수요'] },
-      { rank: 5, symbol: '086790', name: '하나금융지주', score: 3.7, targetPriceMultiplier: 1.08, reason: 'PBR 0.45배 극심한 저평가. 배당 5.5%. 방어적 포트폴리오 핵심.', risks: ['금융 규제', '경기 민감'] },
-    ],
-  };
-  return fallbacks[heroId] || fallbacks.claude;
-}
+// AI 분석 실패 시 에러 반환 (더미 데이터 없음)
 
 export async function GET(
   request: NextRequest,
@@ -487,14 +461,22 @@ export async function GET(
     console.error(`AI analysis failed for ${heroId}:`, error);
   }
   
-  // 3. AI 분석 실패 시 폴백 사용
-  const usedFallback = !top5 || top5.length === 0;
-  if (usedFallback) {
-    console.log(`[${heroId}] Using fallback recommendations`);
-    top5 = getFallbackRecommendations(heroId);
-  } else {
-    console.log(`[${heroId}] AI analysis successful, got ${top5.length} stocks`);
+  // 3. AI 분석 실패 시 에러 반환 (더미 데이터 없음)
+  if (!top5 || top5.length === 0) {
+    console.error(`[${heroId}] AI analysis failed - no results`);
+    return NextResponse.json({
+      error: 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      hero: {
+        id: heroId,
+        name: profile.name,
+        nameKo: profile.nameKo,
+      },
+      stocks: [],
+      isAIGenerated: false,
+    }, { status: 503 });
   }
+  
+  console.log(`[${heroId}] AI analysis successful, got ${top5.length} stocks`);
   
   // 4. 실시간 가격 병합
   const stocksWithPrices = top5.map((stock, idx) => {
@@ -538,7 +520,7 @@ export async function GET(
     date: now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
     time: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
     isRealTime: realPrices.size > 0,
-    isAIGenerated: !usedFallback,
+    isAIGenerated: true,
     stocks: stocksWithPrices,
   });
 }

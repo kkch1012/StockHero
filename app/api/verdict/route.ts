@@ -30,16 +30,15 @@ const STOCK_NAMES: Record<string, string> = {
   '032830': '삼성생명',
   '086790': '하나금융지주',
   '009150': '삼성전기',
+  '247540': '에코프로비엠',
+  '086520': '에코프로',
+  '352820': '하이브',
+  '196170': '알테오젠',
+  '443060': '레인보우로보틱스',
+  '042700': '한미반도체',
+  '012450': '한화에어로스페이스',
+  '047810': '한국항공우주',
 };
-
-// Fallback 추천 (DB에 데이터가 없을 때)
-const FALLBACK_TOP5 = [
-  { rank: 1, symbol: '005930', name: '삼성전자', avgScore: 4.5, isUnanimous: true },
-  { rank: 2, symbol: '000660', name: 'SK하이닉스', avgScore: 4.3, isUnanimous: true },
-  { rank: 3, symbol: '373220', name: 'LG에너지솔루션', avgScore: 4.1, isUnanimous: false },
-  { rank: 4, symbol: '035720', name: '카카오', avgScore: 3.9, isUnanimous: false },
-  { rank: 5, symbol: '105560', name: 'KB금융', avgScore: 3.8, isUnanimous: false },
-];
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -49,15 +48,25 @@ export async function GET(request: NextRequest) {
   const targetDate = dateParam || new Date().toISOString().split('T')[0];
   
   try {
-    // 1. DB에서 해당 날짜의 verdict 조회
+    // 1. DB에서 해당 날짜의 verdict 조회 (실제 AI 분석 데이터만)
     const { data: verdict, error } = await supabase
       .from('verdicts')
       .select('*')
       .eq('date', targetDate)
       .single();
 
-    let top5 = verdict?.top5 || FALLBACK_TOP5;
-    const isFromDB = !!verdict;
+    // DB에 데이터가 없으면 에러 반환 (더미 데이터 없음)
+    if (error || !verdict?.top5 || verdict.top5.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: '해당 날짜의 AI 분석 데이터가 없습니다.',
+        message: 'AI 분석을 먼저 실행해주세요.',
+        targetDate,
+        top5: [],
+      }, { status: 404 });
+    }
+    
+    const top5 = verdict.top5;
     
     // 2. 실시간 가격 조회
     const symbols = top5.map((item: any) => item.symbol);
@@ -107,7 +116,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       isRealTime: realTimePrices.size > 0,
-      isFromDB,
+      isFromDB: true,
       date: dateStr,
       time: timeStr,
       targetDate,
@@ -119,42 +128,12 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Verdict API error:', error);
     
-    // 에러 시 Fallback 사용
-    const symbols = FALLBACK_TOP5.map(item => item.symbol);
-    let realTimePrices: Map<string, any> = new Map();
-    
-    try {
-      realTimePrices = await fetchMultipleStockPrices(symbols);
-    } catch (e) {
-      console.error('Failed to fetch fallback prices:', e);
-    }
-    
-    const top5WithPrices = FALLBACK_TOP5.map((item, idx) => {
-      const realPrice = realTimePrices.get(item.symbol);
-      return {
-        ...item,
-        symbolId: String(idx + 1),
-        unanimous: item.isUnanimous,
-        rationale: `${item.name}은(는) AI 분석가들의 추천을 받았습니다.`,
-        currentPrice: realPrice?.price || 0,
-        change: realPrice?.change || 0,
-        changePercent: realPrice?.changePercent || 0,
-        claudeScore: 0,
-        geminiScore: 0,
-        gptScore: 0,
-      };
-    });
-    
     return NextResponse.json({
-      success: true,
-      isRealTime: realTimePrices.size > 0,
-      isFromDB: false,
-      date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
-      time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-      targetDate: new Date().toISOString().split('T')[0],
-      unanimousCount: 2,
-      rationale: 'AI 분석가들이 선정한 오늘의 Top 5 종목입니다.',
-      top5: top5WithPrices,
-    });
+      success: false,
+      error: 'AI 분석 데이터를 가져오는데 실패했습니다.',
+      message: error.message || 'Internal server error',
+      targetDate,
+      top5: [],
+    }, { status: 500 });
   }
 }
