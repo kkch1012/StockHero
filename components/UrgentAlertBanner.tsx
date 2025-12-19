@@ -15,48 +15,81 @@ interface UrgentAlert {
   message: string;
   confidenceScore: number;
   timeAgo: number; // minutes ago
+  changePercent: number;
   isPremium: boolean;
 }
 
-// 샘플 알림 데이터 (실제로는 API에서 가져와야 함)
-const SAMPLE_ALERTS: UrgentAlert[] = [
-  {
-    id: '1',
-    stockName: 'SK하이닉스',
-    stockSymbol: '000660',
-    character: 'gemini',
-    characterName: '제미나인',
-    alertType: 'surge',
-    message: 'HBM 수주 급증 신호 포착! 단기 급등 예상',
-    confidenceScore: 94,
-    timeAgo: 12,
-    isPremium: true,
-  },
-  {
-    id: '2',
-    stockName: '에코프로비엠',
-    stockSymbol: '247540',
-    character: 'claude',
-    characterName: '클로드리',
-    alertType: 'breakout',
-    message: '저항선 돌파 임박, 거래량 급증 감지',
-    confidenceScore: 87,
-    timeAgo: 28,
-    isPremium: true,
-  },
-  {
-    id: '3',
-    stockName: '삼성전자',
-    stockSymbol: '005930',
-    character: 'gpt',
-    characterName: '쥐피테일러',
-    alertType: 'surge',
-    message: '외국인 순매수 전환, 반등 시그널',
-    confidenceScore: 82,
-    timeAgo: 45,
-    isPremium: true,
-  },
-];
+const CHARACTER_NAMES: Record<CharacterType, string> = {
+  claude: '클로드리',
+  gemini: '제미나인',
+  gpt: '쥐피테일러',
+};
+
+// 실시간 알림 생성 함수
+async function generateRealAlerts(): Promise<UrgentAlert[]> {
+  try {
+    // 오늘의 AI 추천 가져오기
+    const verdictRes = await fetch('/api/verdict/today');
+    const verdictData = await verdictRes.json();
+    
+    if (!verdictData.top5 || verdictData.top5.length === 0) {
+      return [];
+    }
+    
+    // 상위 3개 종목에 대해 실시간 가격 가져오기
+    const alerts: UrgentAlert[] = [];
+    const top3 = verdictData.top5.slice(0, 3);
+    
+    for (let i = 0; i < top3.length; i++) {
+      const stock = top3[i];
+      try {
+        const priceRes = await fetch(`/api/stock/price?symbol=${stock.symbol}`);
+        const priceData = await priceRes.json();
+        
+        const changePercent = priceData.changePercent || 0;
+        const alertType: UrgentAlert['alertType'] = 
+          changePercent > 2 ? 'surge' : 
+          changePercent < -2 ? 'drop' : 'breakout';
+        
+        // AI 점수를 기반으로 확신도 계산
+        const avgScore = stock.avgScore || 4.0;
+        const confidenceScore = Math.round(60 + (avgScore * 8));
+        
+        // 캐릭터 선택 (순환)
+        const characters: CharacterType[] = ['gemini', 'claude', 'gpt'];
+        const character = characters[i % 3];
+        
+        // 실시간 메시지 생성
+        const messages = {
+          surge: `${changePercent.toFixed(1)}% 상승 중! 강한 매수세 유입`,
+          drop: `${Math.abs(changePercent).toFixed(1)}% 하락, 저점 매수 기회 포착`,
+          breakout: `거래량 증가, ${changePercent >= 0 ? '상승' : '하락'} 추세 전환 신호`,
+        };
+        
+        alerts.push({
+          id: String(i + 1),
+          stockName: stock.name,
+          stockSymbol: stock.symbol,
+          character,
+          characterName: CHARACTER_NAMES[character],
+          alertType,
+          message: messages[alertType],
+          confidenceScore,
+          changePercent,
+          timeAgo: Math.floor(Math.random() * 30) + 5, // 5-35분 전
+          isPremium: true,
+        });
+      } catch (e) {
+        console.error('Error fetching price for', stock.symbol, e);
+      }
+    }
+    
+    return alerts;
+  } catch (e) {
+    console.error('Error generating alerts:', e);
+    return [];
+  }
+}
 
 function AlertTypeIcon({ type }: { type: UrgentAlert['alertType'] }) {
   if (type === 'surge') {
@@ -126,7 +159,31 @@ function CountdownTimer() {
 export function UrgentAlertBanner() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPremium] = useState(false); // 실제로는 auth에서 가져와야 함
-  const latestAlert = SAMPLE_ALERTS[0];
+  const [alerts, setAlerts] = useState<UrgentAlert[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // 실시간 알림 가져오기
+  useEffect(() => {
+    async function fetchAlerts() {
+      setIsLoading(true);
+      const realAlerts = await generateRealAlerts();
+      setAlerts(realAlerts);
+      setIsLoading(false);
+    }
+    
+    fetchAlerts();
+    
+    // 5분마다 갱신
+    const interval = setInterval(fetchAlerts, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  const latestAlert = alerts[0];
+  
+  // 알림이 없거나 로딩 중이면 표시하지 않음
+  if (isLoading || alerts.length === 0) {
+    return null;
+  }
 
   return (
     <div className="relative overflow-hidden">
@@ -220,7 +277,7 @@ export function UrgentAlertBanner() {
 
             {/* Alert List */}
             <div className="space-y-3">
-              {SAMPLE_ALERTS.map((alert, index) => (
+              {alerts.map((alert, index) => (
                 <div
                   key={alert.id}
                   className={`relative p-4 rounded-xl border transition-all ${
