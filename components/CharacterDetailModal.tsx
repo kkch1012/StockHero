@@ -162,9 +162,9 @@ export function CharacterDetailModal({ character, isOpen, onClose, holdings = []
             <div className="px-6 pt-6">
               <button
                 onClick={() => setShowConsultation(true)}
-                className={`w-full py-5 px-6 rounded-2xl bg-gradient-to-r ${character.gradient} text-white font-bold text-lg flex items-center justify-center gap-3 hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 shadow-xl ring-2 ring-white/20 animate-pulse-slow`}
+                className="w-full py-5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white font-bold text-lg flex items-center justify-center gap-3 hover:scale-[1.02] hover:from-emerald-400 hover:via-teal-400 hover:to-cyan-400 transition-all duration-200 shadow-xl ring-2 ring-emerald-400/30"
                 style={{
-                  boxShadow: `0 8px 32px rgba(99, 102, 241, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3)`
+                  boxShadow: `0 8px 32px rgba(16, 185, 129, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3)`
                 }}
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
