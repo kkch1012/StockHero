@@ -16,56 +16,91 @@ interface MissedPick {
   isUnanimous: boolean;
 }
 
-// 최근 AI 추천 종목 (실제로는 API에서 가져와야 함)
-function generateMissedPicks(): MissedPick[] {
-  const today = new Date();
-  
-  const picks: MissedPick[] = [
-    {
-      symbol: '000660',
-      name: 'SK하이닉스',
-      pickedDate: new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      entryPrice: 185000,
-      currentPrice: 210000,
-      returnPct: 13.5,
-      pickedBy: ['claude', 'gemini', 'gpt'],
-      isUnanimous: true,
-    },
-    {
-      symbol: '373220',
-      name: 'LG에너지솔루션',
-      pickedDate: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      entryPrice: 380000,
-      currentPrice: 415000,
-      returnPct: 9.2,
-      pickedBy: ['gemini', 'gpt'],
-      isUnanimous: false,
-    },
-    {
-      symbol: '005930',
-      name: '삼성전자',
-      pickedDate: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      entryPrice: 72000,
-      currentPrice: 76500,
-      returnPct: 6.3,
-      pickedBy: ['claude', 'gemini'],
-      isUnanimous: false,
-    },
-  ];
-  
-  return picks;
-}
+// 추천 종목 기본 데이터 (추천일 기준 가격)
+const RECOMMENDED_PICKS = [
+  {
+    symbol: '000660',
+    name: 'SK하이닉스',
+    daysAgo: 7,
+    entryPrice: 173000, // 12월 12일 추천 당시 가격
+    pickedBy: ['claude', 'gemini', 'gpt'] as CharacterType[],
+    isUnanimous: true,
+  },
+  {
+    symbol: '373220',
+    name: 'LG에너지솔루션',
+    daysAgo: 5,
+    entryPrice: 359000, // 12월 14일 추천 당시 가격
+    pickedBy: ['gemini', 'gpt'] as CharacterType[],
+    isUnanimous: false,
+  },
+  {
+    symbol: '005930',
+    name: '삼성전자',
+    daysAgo: 3,
+    entryPrice: 53600, // 12월 16일 추천 당시 가격
+    pickedBy: ['claude', 'gemini'] as CharacterType[],
+    isUnanimous: false,
+  },
+];
 
 export function MissedProfitCalculator() {
   const [investmentAmount, setInvestmentAmount] = useState(10000000); // 1000만원
+  const [missedPicks, setMissedPicks] = useState<MissedPick[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const [displayedProfit, setDisplayedProfit] = useState(0);
   
-  const missedPicks = useMemo(() => generateMissedPicks(), []);
+  // 실제 현재가 가져오기
+  useEffect(() => {
+    async function fetchRealPrices() {
+      setIsLoading(true);
+      const today = new Date();
+      
+      const picks: MissedPick[] = await Promise.all(
+        RECOMMENDED_PICKS.map(async (pick) => {
+          try {
+            const res = await fetch(`/api/stock/price?symbol=${pick.symbol}`);
+            const data = await res.json();
+            const currentPrice = data.price || pick.entryPrice;
+            const returnPct = ((currentPrice - pick.entryPrice) / pick.entryPrice) * 100;
+            
+            return {
+              symbol: pick.symbol,
+              name: pick.name,
+              pickedDate: new Date(today.getTime() - pick.daysAgo * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              entryPrice: pick.entryPrice,
+              currentPrice,
+              returnPct: Math.round(returnPct * 10) / 10,
+              pickedBy: pick.pickedBy,
+              isUnanimous: pick.isUnanimous,
+            };
+          } catch {
+            // API 실패 시 기본값 사용
+            return {
+              symbol: pick.symbol,
+              name: pick.name,
+              pickedDate: new Date(today.getTime() - pick.daysAgo * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              entryPrice: pick.entryPrice,
+              currentPrice: pick.entryPrice,
+              returnPct: 0,
+              pickedBy: pick.pickedBy,
+              isUnanimous: pick.isUnanimous,
+            };
+          }
+        })
+      );
+      
+      setMissedPicks(picks);
+      setIsLoading(false);
+    }
+    
+    fetchRealPrices();
+  }, []);
   
   // 총 놓친 수익 계산
   const totalMissedProfit = useMemo(() => {
-    // 각 종목에 균등 분배 가정
+    if (missedPicks.length === 0) return 0;
     const perStock = investmentAmount / missedPicks.length;
     return missedPicks.reduce((sum, pick) => {
       return sum + (perStock * pick.returnPct / 100);
@@ -73,11 +108,14 @@ export function MissedProfitCalculator() {
   }, [investmentAmount, missedPicks]);
   
   const avgReturnPct = useMemo(() => {
+    if (missedPicks.length === 0) return 0;
     return missedPicks.reduce((sum, p) => sum + p.returnPct, 0) / missedPicks.length;
   }, [missedPicks]);
   
   // 숫자 애니메이션
   useEffect(() => {
+    if (isLoading) return;
+    
     setIsAnimating(true);
     const duration = 1500;
     const startTime = Date.now();
@@ -102,7 +140,7 @@ export function MissedProfitCalculator() {
     };
     
     requestAnimationFrame(animate);
-  }, [totalMissedProfit]);
+  }, [totalMissedProfit, isLoading]);
   
   const presets = [
     { value: 1000000, label: '100만원' },
@@ -136,11 +174,17 @@ export function MissedProfitCalculator() {
         {/* Main profit display */}
         <div className="text-center py-6 mb-6">
           <div className="text-sm text-orange-300 mb-2">당신이 놓친 예상 수익</div>
-          <div className={`text-5xl md:text-6xl font-black bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent ${isAnimating ? 'animate-pulse' : ''}`}>
-            +{Math.round(displayedProfit).toLocaleString()}원
-          </div>
+          {isLoading ? (
+            <div className="text-5xl md:text-6xl font-black text-dark-500 animate-pulse">
+              계산 중...
+            </div>
+          ) : (
+            <div className={`text-5xl md:text-6xl font-black bg-gradient-to-r ${totalMissedProfit >= 0 ? 'from-amber-400 via-orange-400 to-red-400' : 'from-blue-400 via-cyan-400 to-teal-400'} bg-clip-text text-transparent ${isAnimating ? 'animate-pulse' : ''}`}>
+              {totalMissedProfit >= 0 ? '+' : ''}{Math.round(displayedProfit).toLocaleString()}원
+            </div>
+          )}
           <div className="mt-2 text-lg text-orange-200">
-            평균 수익률 <span className="font-bold text-amber-400">+{avgReturnPct.toFixed(1)}%</span>
+            평균 수익률 <span className={`font-bold ${avgReturnPct >= 0 ? 'text-amber-400' : 'text-cyan-400'}`}>{avgReturnPct >= 0 ? '+' : ''}{avgReturnPct.toFixed(1)}%</span>
           </div>
         </div>
         
@@ -167,49 +211,60 @@ export function MissedProfitCalculator() {
         {/* Missed picks list */}
         <div className="space-y-3 mb-6">
           <div className="text-xs text-dark-400 mb-2">놓친 AI 추천 ({missedPicks.length}건)</div>
-          {missedPicks.map((pick) => (
-            <Link
-              key={pick.symbol}
-              href={`/battle/${pick.symbol}`}
-              className="flex items-center gap-3 p-3 rounded-xl bg-dark-900/50 hover:bg-dark-900 border border-dark-800/50 hover:border-orange-500/30 transition-all group"
-            >
-              {/* Stock info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-dark-100 group-hover:text-white transition-colors">
-                    {pick.name}
-                  </span>
-                  {pick.isUnanimous && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                      만장일치
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-3 rounded-xl bg-dark-900/50 border border-dark-800/50 animate-pulse">
+                  <div className="h-5 bg-dark-800 rounded w-1/3 mb-2" />
+                  <div className="h-3 bg-dark-800 rounded w-2/3" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            missedPicks.map((pick) => (
+              <Link
+                key={pick.symbol}
+                href={`/battle/${pick.symbol}`}
+                className="flex items-center gap-3 p-3 rounded-xl bg-dark-900/50 hover:bg-dark-900 border border-dark-800/50 hover:border-orange-500/30 transition-all group"
+              >
+                {/* Stock info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-dark-100 group-hover:text-white transition-colors">
+                      {pick.name}
                     </span>
-                  )}
-                </div>
-                <div className="text-xs text-dark-500">
-                  {pick.pickedDate} 추천 · {pick.entryPrice.toLocaleString()}원 → {pick.currentPrice.toLocaleString()}원
-                </div>
-              </div>
-              
-              {/* AI avatars */}
-              <div className="flex -space-x-1">
-                {pick.pickedBy.map((ai) => (
-                  <div key={ai} className="w-6 h-6 rounded-full border-2 border-dark-900 overflow-hidden">
-                    <CharacterAvatar character={ai} size="sm" />
+                    {pick.isUnanimous && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        만장일치
+                      </span>
+                    )}
                   </div>
-                ))}
-              </div>
-              
-              {/* Return */}
-              <div className="text-right">
-                <div className="text-lg font-bold text-emerald-400">
-                  +{pick.returnPct.toFixed(1)}%
+                  <div className="text-xs text-dark-500">
+                    {pick.pickedDate} 추천 · {pick.entryPrice.toLocaleString()}원 → {pick.currentPrice.toLocaleString()}원
+                  </div>
                 </div>
-                <div className="text-xs text-dark-500">
-                  +{Math.round((investmentAmount / missedPicks.length) * pick.returnPct / 100).toLocaleString()}원
+                
+                {/* AI avatars */}
+                <div className="flex -space-x-1">
+                  {pick.pickedBy.map((ai) => (
+                    <div key={ai} className="w-6 h-6 rounded-full border-2 border-dark-900 overflow-hidden">
+                      <CharacterAvatar character={ai} size="sm" />
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </Link>
-          ))}
+                
+                {/* Return */}
+                <div className="text-right">
+                  <div className={`text-lg font-bold ${pick.returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {pick.returnPct >= 0 ? '+' : ''}{pick.returnPct.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-dark-500">
+                    {pick.returnPct >= 0 ? '+' : ''}{Math.round((investmentAmount / missedPicks.length) * pick.returnPct / 100).toLocaleString()}원
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
         </div>
         
         {/* CTA */}
