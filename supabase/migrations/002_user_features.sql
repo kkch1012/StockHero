@@ -166,3 +166,4 @@ CREATE TRIGGER update_activity_stats_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 
+

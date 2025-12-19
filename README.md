@@ -239,3 +239,4 @@ Vercel 대시보드에서 환경 변수를 설정합니다.
 MIT License
 
 
+

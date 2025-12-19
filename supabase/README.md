@@ -117,3 +117,4 @@ GOOGLE_AI_API_KEY=your_google_ai_key
 - Supabase Dashboard에서 테이블 생성 확인
 
 
+

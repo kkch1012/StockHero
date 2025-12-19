@@ -84,7 +84,7 @@ export default function HomePage() {
               {(['claude', 'gemini', 'gpt'] as const).map((charId) => {
                 const char = CHARACTERS[charId];
                 return (
-                  <div key={charId} className="card-interactive group">
+                  <div key={charId} className="card-interactive group flex flex-col h-full">
                     <div className="flex items-center gap-4 mb-6">
                       <CharacterAvatar character={charId} size="xl" />
                       <div>
@@ -92,7 +92,7 @@ export default function HomePage() {
                         <p className="text-sm text-dark-500">{char.role}</p>
                       </div>
                     </div>
-                    <p className="text-dark-400 text-sm leading-relaxed mb-4">
+                    <p className="text-dark-400 text-sm leading-relaxed mb-4 flex-1">
                       {char.description}
                     </p>
                     <div className="flex flex-wrap gap-2 mb-4">

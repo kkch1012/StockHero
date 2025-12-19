@@ -71,3 +71,4 @@ CREATE TRIGGER update_user_portfolio_holdings_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 
+

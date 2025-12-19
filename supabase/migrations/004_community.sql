@@ -242,3 +242,4 @@ CREATE INDEX idx_post_comments_post ON post_comments(post_id);
 CREATE INDEX idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 
 
+
