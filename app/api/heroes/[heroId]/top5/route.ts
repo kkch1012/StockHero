@@ -34,10 +34,11 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || '' })
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
 // OpenRouter 모델 매핑
+// 최신 AI 모델 (2024년 12월 기준)
 const OPENROUTER_MODELS: Record<string, string> = {
-  claude: 'anthropic/claude-sonnet-4',
-  gemini: 'google/gemini-2.0-flash-exp:free',
-  gpt: 'openai/gpt-4o',
+  claude: 'anthropic/claude-sonnet-4',           // Claude Sonnet 4 (최신)
+  gemini: 'google/gemini-2.5-flash-preview-05-20', // Gemini 2.5 Flash (최신)
+  gpt: 'openai/gpt-4.1',                         // GPT-4.1 (최신)
 };
 
 // 분석 대상 종목 목록 (대형주 + 중소형주 + 테마주 다양화)
