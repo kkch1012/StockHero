@@ -7,18 +7,18 @@
 import type { LLMAdapter, LLMContext, LLMResponse, CharacterType } from './types';
 import { CHARACTER_PERSONAS } from './types';
 
-// OpenRouter 지원 모델 (2024년 12월)
+// OpenRouter 최신 모델 (2024년 12월)
 const MODEL_MAP: Record<CharacterType, string> = {
-  claude: 'anthropic/claude-3.5-sonnet',         // Claude 3.5 Sonnet
-  gemini: 'google/gemini-2.0-flash-exp:free',    // Gemini 2.0 Flash (무료)
-  gpt: 'openai/gpt-4o',                          // GPT-4o
+  claude: 'anthropic/claude-opus-4.5',           // Claude Opus 4.5 (최신)
+  gemini: 'google/gemini-2.5-flash',             // Gemini 2.5 Flash (안정적)
+  gpt: 'openai/gpt-5.2',                         // GPT-5.2 (최신)
 };
 
 // 대체 모델 (rate limit이나 에러 시)
 const FALLBACK_MODEL_MAP: Record<CharacterType, string> = {
-  claude: 'anthropic/claude-3-haiku',            // Claude 3 Haiku (빠르고 저렴)
-  gemini: 'google/gemini-flash-1.5',             // Gemini Flash 1.5
-  gpt: 'openai/gpt-4o-mini',                     // GPT-4o Mini
+  claude: 'anthropic/claude-3.5-sonnet',         // Claude 3.5 Sonnet
+  gemini: 'google/gemini-2.0-flash-exp:free',    // Gemini 2.0 Flash (무료)
+  gpt: 'openai/gpt-4o',                          // GPT-4o
 };
 
 interface OpenRouterMessage {
