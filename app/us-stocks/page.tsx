@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Link from 'next/link';
+import { DisclaimerBar, Header } from '@/components';
 
 interface StockRecommendation {
   rank: number;
@@ -105,52 +105,46 @@ export default function USStocksPage() {
   const heroConfig = HEROES.find(h => h.id === selectedHero);
 
   return (
-    <main className="min-h-screen bg-dark-950">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-dark-900 to-dark-950 border-b border-dark-800">
-        <div className="container-app py-8">
-          <div className="flex items-center justify-between mb-6">
-            <Link href="/" className="btn-ghost flex items-center gap-2 text-dark-400 hover:text-brand-400">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              홈으로
-            </Link>
-          </div>
+    <>
+      <DisclaimerBar />
+      <Header />
+      <main className="min-h-screen bg-dark-950 pt-28 pb-16">
+        {/* Page Header */}
+        <div className="bg-gradient-to-b from-dark-900/50 to-transparent border-b border-dark-800/50">
+          <div className="container-app py-8">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl sm:text-4xl font-bold text-dark-100 mb-3">
+                🇺🇸 미국주식 AI 분석
+              </h1>
+              <p className="text-dark-400 max-w-2xl mx-auto">
+                3명의 AI 전문가가 각자의 투자철학으로 미국주식 Top 5를 추천합니다
+              </p>
+              {currentData?.isLoading && (
+                <p className="text-brand-400 mt-2">AI 분석 중...</p>
+              )}
+            </div>
 
-          <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold text-dark-100 mb-3">
-              🇺🇸 미국주식 AI 분석
-            </h1>
-            <p className="text-dark-400 max-w-2xl mx-auto">
-              3명의 AI 전문가가 각자의 투자철학으로 미국주식 Top 5를 추천합니다
-            </p>
-            {currentData?.isLoading && (
-              <p className="text-brand-400 mt-2">AI 분석 중...</p>
-            )}
-          </div>
-
-          {/* Hero Selector */}
-          <div className="flex justify-center gap-3 flex-wrap">
-            {HEROES.map(hero => (
-              <button
-                key={hero.id}
-                onClick={() => setSelectedHero(hero.id)}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
-                  selectedHero === hero.id
-                    ? `bg-gradient-to-r ${hero.color} text-white shadow-lg scale-105`
-                    : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
-                }`}
-              >
-                <span className="mr-2">{hero.icon}</span>
-                {hero.id === 'claude' && '클로드 리'}
-                {hero.id === 'gemini' && '제미 나인'}
-                {hero.id === 'gpt' && 'G.P. 테일러'}
-              </button>
-            ))}
+            {/* Hero Selector */}
+            <div className="flex justify-center gap-3 flex-wrap">
+              {HEROES.map(hero => (
+                <button
+                  key={hero.id}
+                  onClick={() => setSelectedHero(hero.id)}
+                  className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                    selectedHero === hero.id
+                      ? `bg-gradient-to-r ${hero.color} text-white shadow-lg scale-105`
+                      : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
+                  }`}
+                >
+                  <span className="mr-2">{hero.icon}</span>
+                  {hero.id === 'claude' && '클로드 리'}
+                  {hero.id === 'gemini' && '제미 나인'}
+                  {hero.id === 'gpt' && 'G.P. 테일러'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Content */}
       <div className="container-app py-8">
@@ -350,6 +344,7 @@ export default function USStocksPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }
 
