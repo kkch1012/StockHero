@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 import { useSubscription, useFeatureUsage } from '@/lib/subscription/hooks';
 import { LockOverlay, UpgradePrompt, UsageBadge } from './UpgradePrompt';
-import { FEATURE_LIMITS } from '@/lib/subscription/config';
+import { FEATURE_LIMITS, SUBSCRIPTION_ENABLED } from '@/lib/subscription/config';
 
 interface FeatureGateProps {
   feature: keyof typeof FEATURE_LIMITS;
@@ -35,6 +35,11 @@ export function FeatureGate({
 }: FeatureGateProps) {
   const { hasAccess, isPro, isPremium, isLoading } = useSubscription();
   const { currentUsage, limit, canUse, isLoading: usageLoading } = useFeatureUsage(feature);
+
+  // 구독 기능 비활성화 시 바로 children 렌더링
+  if (!SUBSCRIPTION_ENABLED) {
+    return <>{children}</>;
+  }
 
   // 로딩 중
   if (isLoading || usageLoading) {
@@ -123,6 +128,22 @@ export function withFeatureGate<P extends object>(
 export function useFeatureGate(feature: keyof typeof FEATURE_LIMITS) {
   const { hasAccess, isPro, isPremium, tier } = useSubscription();
   const { currentUsage, limit, canUse, increment, remaining } = useFeatureUsage(feature);
+
+  // 구독 기능 비활성화 시 모든 기능 허용
+  if (!SUBSCRIPTION_ENABLED) {
+    return {
+      canAccess: true,
+      currentUsage: 0,
+      limit: -1,
+      remaining: Infinity,
+      use: async () => true,
+      tier: 'premium' as const,
+      isPro: true,
+      isPremium: true,
+      needsUpgrade: false,
+      requiredTier: null,
+    };
+  }
 
   return {
     // 접근 가능 여부

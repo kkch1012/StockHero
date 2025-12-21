@@ -10,6 +10,7 @@ import {
   canAccessFeature,
   getFeatureLimit,
   FEATURE_LIMITS,
+  SUBSCRIPTION_ENABLED,
 } from './config';
 
 interface SubscriptionState {
@@ -42,16 +43,33 @@ async function getAccessToken(): Promise<string | null> {
 // 구독 정보 훅
 export function useSubscription() {
   const { user } = useAuth();
+  
+  // 구독 기능 비활성화 시 Premium 권한 부여
+  const premiumPlan = SUBSCRIPTION_PLANS.find(p => p.id === 'premium') || SUBSCRIPTION_PLANS[2];
+  
   const [state, setState] = useState<SubscriptionState>({
-    tier: 'free',
+    tier: SUBSCRIPTION_ENABLED ? 'free' : 'premium',
     status: 'active',
-    plan: SUBSCRIPTION_PLANS[0],
+    plan: SUBSCRIPTION_ENABLED ? SUBSCRIPTION_PLANS[0] : premiumPlan,
     subscription: null,
-    isLoading: true,
+    isLoading: SUBSCRIPTION_ENABLED,
     error: null,
   });
 
   const fetchSubscription = useCallback(async () => {
+    // 구독 기능 비활성화 시 API 호출 생략
+    if (!SUBSCRIPTION_ENABLED) {
+      setState({
+        tier: 'premium',
+        status: 'active',
+        plan: premiumPlan,
+        subscription: null,
+        isLoading: false,
+        error: null,
+      });
+      return;
+    }
+
     if (!user) {
       setState({
         tier: 'free',
@@ -94,33 +112,35 @@ export function useSubscription() {
         error: error instanceof Error ? error.message : 'Unknown error',
       }));
     }
-  }, [user]);
+  }, [user, premiumPlan]);
 
   useEffect(() => {
     fetchSubscription();
   }, [fetchSubscription]);
 
-  // 기능 접근 가능 여부
+  // 기능 접근 가능 여부 - 구독 비활성화 시 항상 true
   const hasAccess = useCallback(
     (feature: keyof typeof FEATURE_LIMITS): boolean => {
+      if (!SUBSCRIPTION_ENABLED) return true;
       return canAccessFeature(state.tier, feature);
     },
     [state.tier]
   );
 
-  // 기능 제한 수 확인
+  // 기능 제한 수 확인 - 구독 비활성화 시 무제한
   const getLimit = useCallback(
     (feature: keyof typeof FEATURE_LIMITS): number => {
+      if (!SUBSCRIPTION_ENABLED) return -1; // 무제한
       return getFeatureLimit(state.tier, feature);
     },
     [state.tier]
   );
 
-  // Pro 이상인지 확인
-  const isPro = state.tier === 'pro' || state.tier === 'premium';
+  // Pro 이상인지 확인 - 구독 비활성화 시 항상 true
+  const isPro = !SUBSCRIPTION_ENABLED || state.tier === 'pro' || state.tier === 'premium';
   
-  // Premium인지 확인
-  const isPremium = state.tier === 'premium';
+  // Premium인지 확인 - 구독 비활성화 시 항상 true
+  const isPremium = !SUBSCRIPTION_ENABLED || state.tier === 'premium';
 
   return {
     ...state,
@@ -142,12 +162,18 @@ export function useFeatureUsage(featureKey: string) {
     isLoading: boolean;
   }>({
     currentUsage: 0,
-    limit: 0,
-    canUse: false,
-    isLoading: true,
+    limit: SUBSCRIPTION_ENABLED ? 0 : -1, // 비활성화 시 무제한
+    canUse: !SUBSCRIPTION_ENABLED, // 비활성화 시 항상 사용 가능
+    isLoading: SUBSCRIPTION_ENABLED,
   });
 
   const fetchUsage = useCallback(async () => {
+    // 구독 기능 비활성화 시 API 호출 생략
+    if (!SUBSCRIPTION_ENABLED) {
+      setUsage({ currentUsage: 0, limit: -1, canUse: true, isLoading: false });
+      return;
+    }
+
     if (!user) {
       setUsage({ currentUsage: 0, limit: 0, canUse: false, isLoading: false });
       return;
@@ -179,8 +205,9 @@ export function useFeatureUsage(featureKey: string) {
     fetchUsage();
   }, [fetchUsage]);
 
-  // 사용량 증가
+  // 사용량 증가 - 구독 비활성화 시 항상 성공
   const increment = useCallback(async (): Promise<boolean> => {
+    if (!SUBSCRIPTION_ENABLED) return true;
     if (!user) return false;
 
     try {

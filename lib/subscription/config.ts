@@ -1,5 +1,14 @@
 // 구독 플랜 설정
 
+/**
+ * 구독 기능 활성화 여부
+ * false: 모든 사용자가 모든 기능 무제한 이용 가능 (개발/테스트 모드)
+ * true: 구독 티어에 따른 기능 제한 적용 (프로덕션 모드)
+ * 
+ * TODO: PortOne 연동 완료 후 true로 변경
+ */
+export const SUBSCRIPTION_ENABLED = false;
+
 export type SubscriptionTier = 'free' | 'pro' | 'premium';
 
 export interface PlanFeature {
