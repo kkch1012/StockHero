@@ -71,20 +71,48 @@ export function MultiExpertConsultation({
   //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   // }, [messages, currentTypingMessage]);
 
-  // 초기 분석 요청 (3명 모두)
+  // 초기 분석 요청 (3명 모두 - 서로의 의견을 참고하여 토론)
   const requestInitialAnalysis = async () => {
     if (!stockData || !stockName) return;
 
     setIsLoading(true);
     const experts: CharacterType[] = ['claude', 'gemini', 'gpt'];
     setLoadingExperts([...experts]);
+    
+    // 이전 전문가들의 의견을 저장
+    const previousOpinions: { expert: CharacterType; content: string }[] = [];
 
-    for (const expert of experts) {
+    for (let i = 0; i < experts.length; i++) {
+      const expert = experts[i];
       try {
         // 현재 전문가 응답 대기 상태로 설정
         setTypingCharacter(expert);
         setIsTyping(true);
         setCurrentTypingMessage('');
+
+        // 이전 전문가들의 의견을 포함한 프롬프트 구성
+        let prompt = `${stockName}(${stockSymbol})에 대한 당신의 투자 관점과 핵심 의견을 말해주세요. 현재가 ${stockData.currentPrice?.toLocaleString() || '정보없음'}원입니다.`;
+        
+        // 첫 번째 전문가가 아니면 이전 의견들을 참고하도록 함
+        if (previousOpinions.length > 0) {
+          const otherOpinions = previousOpinions.map(op => {
+            const charName = CHARACTERS[op.expert].name;
+            return `[${charName}의 의견]\n${op.content}`;
+          }).join('\n\n');
+          
+          prompt = `${stockName}(${stockSymbol})에 대해 다른 전문가들이 이미 의견을 제시했습니다.
+
+---
+${otherOpinions}
+---
+
+위 의견들을 참고하여 당신만의 관점에서 분석해주세요:
+1. 다른 전문가의 의견에 동의하거나 반박할 부분이 있다면 언급해주세요
+2. 다른 관점에서 놓친 부분이 있다면 보완해주세요
+3. 당신의 고유한 분석 방법론(${expert === 'claude' ? '밸류에이션/펀더멘털' : expert === 'gemini' ? '성장성/트렌드' : '매크로/리스크'})으로 평가해주세요
+
+현재가: ${stockData.currentPrice?.toLocaleString() || '정보없음'}원`;
+        }
 
         const response = await fetch('/api/consultation/chat', {
           method: 'POST',
@@ -93,10 +121,11 @@ export function MultiExpertConsultation({
             characterType: expert,
             messages: [{
               role: 'user',
-              content: `${stockName}(${stockSymbol})에 대한 당신의 투자 관점과 핵심 의견을 간단히 말해주세요. 현재가 ${stockData.currentPrice?.toLocaleString() || '정보없음'}원입니다.`,
+              content: prompt,
             }],
             stockData,
             isInitialAnalysis: true,
+            isDebateMode: previousOpinions.length > 0, // 토론 모드 플래그
           }),
         });
 
@@ -105,6 +134,9 @@ export function MultiExpertConsultation({
         if (data.success && data.data?.content) {
           const content = data.data.content;
           const messageId = `${expert}-initial-${Date.now()}`;
+          
+          // 이 전문가의 의견을 저장 (다음 전문가가 참고하도록)
+          previousOpinions.push({ expert, content });
           
           // 타이핑 애니메이션 (더 부드럽게)
           const chunkSize = 5;
@@ -150,7 +182,7 @@ export function MultiExpertConsultation({
     inputRef.current?.focus();
   };
 
-  // 질문 제출
+  // 질문 제출 (서로의 의견을 참고하여 토론)
   const handleSubmit = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -168,7 +200,7 @@ export function MultiExpertConsultation({
     const experts: CharacterType[] = ['claude', 'gemini', 'gpt'];
     setLoadingExperts([...experts]);
 
-    // 대화 히스토리 구성
+    // 대화 히스토리 구성 (이전 대화 전체)
     const conversationHistory = messages
       .filter(m => m.type === 'user' || m.characterType)
       .map(m => ({
@@ -176,19 +208,44 @@ export function MultiExpertConsultation({
         content: m.type === 'user' ? m.content : `[${CHARACTERS[m.characterType!].name}] ${m.content}`,
       }));
 
-    for (const expert of experts) {
+    // 현재 라운드의 다른 전문가 의견 저장
+    const currentRoundOpinions: { expert: CharacterType; content: string }[] = [];
+
+    for (let i = 0; i < experts.length; i++) {
+      const expert = experts[i];
       try {
         setTypingCharacter(expert);
         setIsTyping(true);
         setCurrentTypingMessage('');
+
+        // 이번 라운드에서 이미 답변한 전문가들의 의견을 포함
+        let contextualPrompt = userMessage.content;
+        if (currentRoundOpinions.length > 0) {
+          const otherOpinions = currentRoundOpinions.map(op => {
+            const charName = CHARACTERS[op.expert].name;
+            return `[${charName}의 이번 답변]\n${op.content}`;
+          }).join('\n\n');
+          
+          contextualPrompt = `사용자 질문: ${userMessage.content}
+
+---
+이번 질문에 대해 다른 전문가들의 답변:
+${otherOpinions}
+---
+
+위 전문가들의 의견을 참고하여 당신만의 관점에서 답변해주세요:
+- 동의하는 부분이나 다른 의견이 있다면 명확히 언급하세요
+- 당신의 전문 영역(${expert === 'claude' ? '밸류에이션/펀더멘털' : expert === 'gemini' ? '성장성/트렌드' : '매크로/리스크'})에서 추가 인사이트를 제공하세요`;
+        }
 
         const response = await fetch('/api/consultation/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             characterType: expert,
-            messages: [...conversationHistory, { role: 'user', content: userMessage.content }],
+            messages: [...conversationHistory, { role: 'user', content: contextualPrompt }],
             stockData,
+            isDebateMode: currentRoundOpinions.length > 0,
           }),
         });
 
@@ -198,9 +255,12 @@ export function MultiExpertConsultation({
           const content = data.data.content;
           const messageId = `${expert}-${Date.now()}`;
           
+          // 이번 라운드 의견 저장
+          currentRoundOpinions.push({ expert, content });
+          
           // 타이핑 애니메이션
-          for (let i = 0; i <= content.length; i += 5) {
-            setCurrentTypingMessage(content.substring(0, i));
+          for (let j = 0; j <= content.length; j += 5) {
+            setCurrentTypingMessage(content.substring(0, j));
             await new Promise(resolve => setTimeout(resolve, 8));
           }
           setCurrentTypingMessage(content);
