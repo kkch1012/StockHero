@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { DisclaimerBar, Header } from '@/components';
+import { DisclaimerBar, Header, CharacterAvatar } from '@/components';
+import type { CharacterType } from '@/lib/types';
 
 interface StockRecommendation {
   rank: number;
@@ -408,16 +409,16 @@ export default function USStocksPage() {
                             <span className="text-dark-500 text-xs">평균 점수</span>
                             <span className="text-yellow-400 font-bold">{item.avgScore.toFixed(1)}</span>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center -space-x-1">
                             {HEROES.map(h => (
-                              <div key={h.id} className={`w-7 h-7 rounded-full bg-gradient-to-r ${h.color} flex items-center justify-center text-sm border-2 border-dark-900`} title={h.name}>
-                                {h.icon}
+                              <div key={h.id} className="border-2 border-dark-900 rounded-xl" title={h.name}>
+                                <CharacterAvatar character={h.id as CharacterType} size="sm" />
                               </div>
                             ))}
                           </div>
                         </div>
                         <div className="mt-2 text-xs text-dark-500 text-center">
-                          3명 모두 추천 ({HEROES.map(h => h.name).join(', ')})
+                          3명 모두 추천 (클로드 리, 제미 나인, G.P. 테일러)
                         </div>
                       </div>
                     ))}
@@ -461,12 +462,12 @@ export default function USStocksPage() {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center -space-x-1">
                             {item.heroes.map(heroId => {
                               const h = HEROES.find(x => x.id === heroId);
                               return h ? (
-                                <div key={heroId} className={`w-7 h-7 rounded-full bg-gradient-to-r ${h.color} flex items-center justify-center text-sm border-2 border-dark-900`} title={h.name}>
-                                  {h.icon}
+                                <div key={heroId} className="border-2 border-dark-900 rounded-xl" title={h.name}>
+                                  <CharacterAvatar character={heroId as CharacterType} size="sm" />
                                 </div>
                               ) : null;
                             })}
