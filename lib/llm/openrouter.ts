@@ -6,6 +6,7 @@
 
 import type { LLMAdapter, LLMContext, LLMResponse, CharacterType } from './types';
 import { CHARACTER_PERSONAS } from './types';
+import { getMinimumFutureDate, validateAndCorrectTargetDate } from './analysis-framework';
 
 // OpenRouter 최신 모델 (2024년 12월)
 const MODEL_MAP: Record<CharacterType, string> = {
@@ -148,7 +149,7 @@ ${previousContext ? `## 이전 분석가들의 의견\n${previousContext}\n` : '
   "content": "당신의 분석 내용 (2-4문장, 캐릭터 말투 유지)",
   "score": 1-5 점수,
   "targetPrice": 목표가(숫자),
-  "targetDate": "목표 달성 예상 시점 (예: 2025년 6월)",
+  "targetDate": "목표 달성 예상 시점 (예: ${getMinimumFutureDate(6)}) - 반드시 현재로부터 최소 6개월 이후!",
   "priceRationale": "목표가 산정 근거",
   "risks": ["리스크1", "리스크2"],
   "sources": ["분석 근거1", "분석 근거2"]
@@ -209,11 +210,14 @@ ${previousContext ? `## 이전 분석가들의 의견\n${previousContext}\n` : '
         targetPrice = Math.round(currentPrice * multipliers[this.characterType] / 100) * 100;
       }
       
+      // 목표 날짜 검증 및 보정 (최소 6개월 미래)
+      const validatedTargetDate = validateAndCorrectTargetDate(parsed.targetDate, this.characterType);
+
       return {
         content: parsed.content || '분석을 완료했습니다.',
         score: Math.min(5, Math.max(1, parsed.score || 3)),
         targetPrice,
-        targetDate: parsed.targetDate,
+        targetDate: validatedTargetDate,
         priceRationale: parsed.priceRationale,
         risks: parsed.risks || [],
         sources: parsed.sources || [],
@@ -242,7 +246,7 @@ ${previousContext ? `## 이전 분석가들의 의견\n${previousContext}\n` : '
       content: defaultMessages[this.characterType],
       score: 3,
       targetPrice: Math.round(currentPrice * multipliers[this.characterType] / 100) * 100,
-      targetDate: '2025년 상반기',
+      targetDate: getMinimumFutureDate(6), // 최소 6개월 후
       risks: ['시장 변동성', '거시경제 불확실성'],
       sources: ['기업 공시', '산업 분석'],
     };

@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { LLMAdapter, LLMContext, LLMResponse } from './types';
 import { generateDebatePrompt } from './debate-prompts';
 import { CHARACTER_BACKSTORIES } from './character-worldview';
-import { ANALYSIS_METHODOLOGIES, calculateTargetDate } from './analysis-framework';
+import { ANALYSIS_METHODOLOGIES, calculateTargetDate, getExampleFutureDateForCharacter, validateAndCorrectTargetDate } from './analysis-framework';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -12,6 +12,7 @@ const anthropic = new Anthropic({
 function getSystemPrompt(): string {
   const backstory = CHARACTER_BACKSTORIES.claude;
   const methodology = ANALYSIS_METHODOLOGIES.claude;
+  const exampleDate = getExampleFutureDateForCharacter('claude');
   
   return `당신은 "${backstory.name} (${backstory.nameKo})"입니다.
 
@@ -74,7 +75,7 @@ ${methodology.riskFactors.map(r => `⚠️ ${r}`).join('\n')}
   "risks": ["리스크1", "리스크2"],
   "sources": ["참고 자료"],
   "targetPrice": 목표가 숫자,
-  "targetDate": "목표 달성 시점 (예: 2026년 2분기)",
+  "targetDate": "목표 달성 시점 (예: ${exampleDate}) - 반드시 현재로부터 최소 6개월 이후!",
   "priceRationale": "목표가 산출 근거 (PER, EPS 성장률 등 구체적 수치 포함)"
 }`;
 }
@@ -204,13 +205,16 @@ export class ClaudeAdapter implements LLMAdapter {
         targetPrice = Math.round(currentPrice * balancedMultiplier / 100) * 100;
       }
 
+      // 목표 날짜 검증 및 보정 (최소 6개월 미래)
+      const validatedTargetDate = validateAndCorrectTargetDate(parsed.targetDate, 'claude');
+
       return {
         content: parsed.content || '분석을 완료할 수 없습니다.',
         score: Math.min(5, Math.max(1, parsed.score || 3)),
         risks: parsed.risks || [],
         sources: parsed.sources || [],
         targetPrice,
-        targetDate: parsed.targetDate,
+        targetDate: validatedTargetDate,
         priceRationale: parsed.priceRationale,
       };
     } catch (error) {

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { LLMAdapter, LLMContext, LLMResponse } from './types';
 import { CHARACTER_BACKSTORIES } from './character-worldview';
-import { ANALYSIS_METHODOLOGIES, calculateTargetDate } from './analysis-framework';
+import { ANALYSIS_METHODOLOGIES, calculateTargetDate, getExampleFutureDateForCharacter, validateAndCorrectTargetDate } from './analysis-framework';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -11,6 +11,7 @@ const openai = new OpenAI({
 function getSystemPrompt(): string {
   const backstory = CHARACTER_BACKSTORIES.gpt;
   const methodology = ANALYSIS_METHODOLOGIES.gpt;
+  const exampleDate = getExampleFutureDateForCharacter('gpt');
   
   return `당신은 "${backstory.name} (${backstory.nameKo})"입니다.
 
@@ -89,7 +90,7 @@ ${methodology.riskFactors.map(r => `⚠️ ${r}`).join('\n')}
   "risks": ["리스크1", "리스크2", "리스크3"],
   "sources": ["참고 자료"],
   "targetPrice": 목표가 숫자 (가장 보수적으로),
-  "targetDate": "목표 달성 시점 (예: 2026-06-30)",
+  "targetDate": "목표 달성 시점 (예: ${exampleDate}) - 반드시 현재로부터 최소 6개월 이후!",
   "priceRationale": "목표가 산출 근거 (리스크 할인율, 거시 요인 등 구체적 설명)"
 }`;
 }
@@ -235,13 +236,16 @@ export class GPTAdapter implements LLMAdapter {
         targetPrice = Math.round(currentPrice * conservativeMultiplier / 100) * 100;
       }
 
+      // 목표 날짜 검증 및 보정 (최소 6개월 미래)
+      const validatedTargetDate = validateAndCorrectTargetDate(parsed.targetDate, 'gpt');
+
       return {
         content: parsed.content || '분석을 완료할 수 없습니다.',
         score: Math.min(5, Math.max(1, parsed.score || 3)),
         risks: parsed.risks || [],
         sources: parsed.sources || [],
         targetPrice,
-        targetDate: parsed.targetDate,
+        targetDate: validatedTargetDate,
         priceRationale: parsed.priceRationale,
       };
     } catch (error) {

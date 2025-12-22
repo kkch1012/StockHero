@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { LLMAdapter, LLMContext, LLMResponse } from './types';
 import { CHARACTER_BACKSTORIES } from './character-worldview';
-import { ANALYSIS_METHODOLOGIES, calculateTargetDate } from './analysis-framework';
+import { ANALYSIS_METHODOLOGIES, calculateTargetDate, getExampleFutureDateForCharacter, validateAndCorrectTargetDate } from './analysis-framework';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
@@ -9,6 +9,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 function getSystemPrompt(): string {
   const backstory = CHARACTER_BACKSTORIES.gemini;
   const methodology = ANALYSIS_METHODOLOGIES.gemini;
+  const exampleDate = getExampleFutureDateForCharacter('gemini');
   
   return `당신은 "${backstory.name} (${backstory.nameKo})"입니다.
 
@@ -77,7 +78,7 @@ ${methodology.catalysts.map(c => `✅ ${c}`).join('\n')}
   "risks": ["리스크1", "리스크2"],
   "sources": ["참고 자료"],
   "targetPrice": 목표가 숫자 (공격적으로),
-  "targetDate": "목표 달성 시점 (예: 2027년 상반기)",
+  "targetDate": "목표 달성 시점 (예: ${exampleDate}) - 반드시 현재로부터 최소 12개월 이후!",
   "priceRationale": "목표가 산출 근거 (TAM, 성장률, PSR 등 구체적 수치 포함)"
 }`;
 }
@@ -204,13 +205,16 @@ export class GeminiAdapter implements LLMAdapter {
         targetPrice = Math.round(currentPrice * aggressiveMultiplier / 100) * 100;
       }
 
+      // 목표 날짜 검증 및 보정 (최소 12개월 미래)
+      const validatedTargetDate = validateAndCorrectTargetDate(parsed.targetDate, 'gemini');
+
       return {
         content: parsed.content || '분석을 완료할 수 없습니다.',
         score: Math.min(5, Math.max(1, parsed.score || 4)),
         risks: parsed.risks || [],
         sources: parsed.sources || [],
         targetPrice,
-        targetDate: parsed.targetDate,
+        targetDate: validatedTargetDate,
         priceRationale: parsed.priceRationale,
       };
     } catch (error) {

@@ -269,6 +269,116 @@ export function calculateTargetPrice(
 
 // ==================== 목표일 산출 로직 ====================
 
+/**
+ * 현재 날짜 기준 최소 N개월 후의 예시 날짜 문자열 생성
+ * AI 프롬프트에서 예시로 사용할 미래 날짜를 동적으로 생성
+ */
+export function getMinimumFutureDate(monthsAhead: number = 6): string {
+  const now = new Date();
+  const future = new Date(now);
+  future.setMonth(future.getMonth() + monthsAhead);
+  
+  const year = future.getFullYear();
+  const month = future.getMonth() + 1;
+  const quarter = Math.ceil(month / 3);
+  
+  // 분기 형식으로 반환
+  return `${year}년 ${quarter}분기`;
+}
+
+/**
+ * 캐릭터별 적절한 미래 날짜 예시 생성
+ */
+export function getExampleFutureDateForCharacter(character: CharacterType): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  
+  switch (character) {
+    case 'claude':
+      // 6-9개월 후 분기 (보수적)
+      const claudeFuture = new Date(now);
+      claudeFuture.setMonth(claudeFuture.getMonth() + 6);
+      const claudeQuarter = Math.ceil((claudeFuture.getMonth() + 1) / 3);
+      return `${claudeFuture.getFullYear()}년 ${claudeQuarter}분기`;
+      
+    case 'gemini':
+      // 12-24개월 후 (공격적)
+      const geminiFuture = new Date(now);
+      geminiFuture.setMonth(geminiFuture.getMonth() + 12);
+      const geminiHalf = geminiFuture.getMonth() < 6 ? '상반기' : '하반기';
+      return `${geminiFuture.getFullYear()}년 ${geminiHalf}`;
+      
+    case 'gpt':
+      // 6-12개월 후 구체적 날짜 (균형)
+      const gptFuture = new Date(now);
+      gptFuture.setMonth(gptFuture.getMonth() + 6);
+      return `${gptFuture.getFullYear()}-${String(gptFuture.getMonth() + 1).padStart(2, '0')}-30`;
+  }
+}
+
+/**
+ * 목표 날짜가 현실적인 미래인지 검증하고, 아니면 보정
+ */
+export function validateAndCorrectTargetDate(targetDate: string | undefined, character: CharacterType): string {
+  const now = new Date();
+  const minMonths = character === 'gemini' ? 12 : 6; // 제미나인은 최소 12개월, 나머지는 6개월
+  const minFutureDate = new Date(now);
+  minFutureDate.setMonth(minFutureDate.getMonth() + minMonths);
+  
+  if (!targetDate) {
+    return getExampleFutureDateForCharacter(character);
+  }
+  
+  // 날짜 파싱 시도
+  const parsed = parseKoreanDate(targetDate);
+  if (!parsed || parsed <= minFutureDate) {
+    // 너무 가까운 미래이거나 과거이면 보정
+    return getExampleFutureDateForCharacter(character);
+  }
+  
+  return targetDate;
+}
+
+/**
+ * 한글 날짜 문자열 파싱 (예: "2026년 2분기", "2027년 상반기", "2026-06-30")
+ */
+function parseKoreanDate(dateStr: string): Date | null {
+  try {
+    // YYYY-MM-DD 형식
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return new Date(dateStr);
+    }
+    
+    // YYYY년 N분기 형식
+    const quarterMatch = dateStr.match(/(\d{4})년\s*(\d)분기/);
+    if (quarterMatch) {
+      const year = parseInt(quarterMatch[1]);
+      const quarter = parseInt(quarterMatch[2]);
+      return new Date(year, quarter * 3 - 1, 1); // 분기 마지막 달의 1일
+    }
+    
+    // YYYY년 상/하반기 형식
+    const halfMatch = dateStr.match(/(\d{4})년\s*(상반기|하반기)/);
+    if (halfMatch) {
+      const year = parseInt(halfMatch[1]);
+      const month = halfMatch[2] === '상반기' ? 6 : 12;
+      return new Date(year, month - 1, 1);
+    }
+    
+    // YYYY년 N월 형식
+    const monthMatch = dateStr.match(/(\d{4})년\s*(\d+)월/);
+    if (monthMatch) {
+      const year = parseInt(monthMatch[1]);
+      const month = parseInt(monthMatch[2]);
+      return new Date(year, month - 1, 1);
+    }
+    
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export interface TargetDateCalculation {
   targetDate: string;
   targetDateRaw: Date;
