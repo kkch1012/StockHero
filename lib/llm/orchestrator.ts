@@ -77,8 +77,16 @@ export class DebateOrchestrator {
       previousTargets: this.previousTargets,
     };
 
+    // 15초 타임아웃 설정
+    const TIMEOUT_MS = 15000;
+    
     try {
-      const response = await adapter.generateStructured(context);
+      const responsePromise = adapter.generateStructured(context);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('AI response timeout')), TIMEOUT_MS)
+      );
+      
+      const response = await Promise.race([responsePromise, timeoutPromise]);
       
       // 목표가 검증
       let validatedTargetPrice = response.targetPrice;
@@ -127,8 +135,9 @@ export class DebateOrchestrator {
       
       return message;
     } catch (error) {
-      console.error(`Error generating response for ${character}:`, error);
-      // Fallback to mock
+      const isTimeout = error instanceof Error && error.message === 'AI response timeout';
+      console.error(`Error generating response for ${character}:`, isTimeout ? 'Timeout (15s)' : error);
+      // Fallback to quick mock response
       const mockAdapter = new MockLLMAdapter(character);
       const response = await mockAdapter.generateStructured(context);
       
