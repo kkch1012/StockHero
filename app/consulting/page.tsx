@@ -308,10 +308,16 @@ function ConsultingPageContent() {
                         key={charId}
                         className={`p-4 rounded-xl ${char.bgColor} border border-current/10 transition-all`}
                       >
-                        <div className="flex items-start gap-4">
-                          <CharacterAvatar character={charId} size="lg" />
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                          <div className="flex items-center gap-3 sm:block">
+                            <CharacterAvatar character={charId} size="lg" />
+                            <div className="sm:hidden flex-1">
+                              <h4 className={`font-semibold ${char.color}`}>{char.name}</h4>
+                              <span className="text-xs text-dark-500">{char.role}</span>
+                            </div>
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="hidden sm:flex items-center gap-2 mb-1">
                               <h4 className={`font-semibold ${char.color}`}>{char.name}</h4>
                               <span className="text-xs text-dark-500">{char.role}</span>
                             </div>
@@ -331,7 +337,7 @@ function ConsultingPageContent() {
                           </div>
                           <button
                             onClick={() => handleConsultClick(charId)}
-                            className={`shrink-0 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                            className={`w-full sm:w-auto shrink-0 px-4 py-2.5 rounded-lg font-medium text-sm text-center transition-all whitespace-nowrap ${
                               selectedStock
                                 ? `${char.bgColor} hover:opacity-80 ${char.color} border border-current/20`
                                 : 'bg-dark-800/50 text-dark-500 hover:bg-dark-800 hover:text-dark-400'
@@ -349,13 +355,13 @@ function ConsultingPageContent() {
                 <div className="pt-4 border-t border-dark-700/50">
                   <button
                     onClick={handleMultiConsultClick}
-                    className={`w-full py-4 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-3 ${
+                    className={`w-full py-4 px-4 sm:px-6 rounded-xl font-medium transition-all flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 ${
                       selectedStock
                         ? 'bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white shadow-lg shadow-brand-500/20'
                         : 'bg-dark-800/50 text-dark-500 hover:bg-dark-800 hover:text-dark-400'
                     }`}
                   >
-                    <div className="flex -space-x-2">
+                    <div className="flex -space-x-2 shrink-0">
                       {(['claude', 'gemini', 'gpt'] as const).map((charId) => (
                         <div
                           key={charId}
@@ -365,7 +371,7 @@ function ConsultingPageContent() {
                         </div>
                       ))}
                     </div>
-                    <span className="text-lg">3명의 전문가 모두에게 상담받기</span>
+                    <span className="text-base sm:text-lg text-center">3명의 전문가 모두에게 상담받기</span>
                   </button>
                   
                   {!selectedStock && (
