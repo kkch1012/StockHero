@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Header, DisclaimerBar, CharacterAvatar } from '@/components';
+import { Header, DisclaimerBar, CharacterAvatar, ShareButtons } from '@/components';
 import { QUIZ_QUESTIONS, STAGE_INFO, calculateInvestorType } from '@/lib/investment-style/questions';
 import { getInvestorTypeInfo, INVESTOR_TYPES } from '@/lib/investment-style/results';
 import type { InvestorTypeInfo } from '@/lib/investment-style/types';
@@ -447,6 +447,26 @@ export default function InvestmentStylePage() {
                       </p>
                     </div>
                   )}
+                </motion.div>
+
+                {/* Share Buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.75 }}
+                  className="card p-6 mb-6"
+                >
+                  <h3 className="text-lg font-bold text-dark-100 mb-4 text-center flex items-center justify-center gap-2">
+                    <span>📤</span> 결과 공유하기
+                  </h3>
+                  <ShareButtons
+                    url={typeof window !== 'undefined' 
+                      ? `${window.location.origin}/investment-style/result/${result.type}`
+                      : ''}
+                    title={`나의 투자 DNA는 "${result.name}" 🧬`}
+                    description={`${result.title} - StockHero 투자성향 분석 결과`}
+                    hashtags={['투자성향', 'StockHero', result.type.replace(/-/g, '')]}
+                  />
                 </motion.div>
 
                 {/* AI Recommendations Button */}

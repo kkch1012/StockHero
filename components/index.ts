@@ -21,3 +21,4 @@ export { FeedComposer, FeedList, PostCard, FollowButton } from './Community';
 export { StockSearchModal } from './StockSearchModal';
 export { MissedProfitCalculator } from './MissedProfitCalculator';
 export { UrgentAlertBanner } from './UrgentAlertBanner';
+export { default as ShareButtons } from './ShareButtons';
