@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { DisclaimerBar, Header, CharacterAvatar, AIConsultationModal, MultiExpertConsultation, StockSearchModal, AIPortfolioSimulator, useToast } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
 import type { CharacterType } from '@/lib/types';
+import { getInvestorTypeInfo, INVESTOR_TYPES } from '@/lib/investment-style/results';
+import type { InvestorType, InvestorTypeInfo } from '@/lib/investment-style/types';
+import Link from 'next/link';
 
 interface StockInfo {
   symbol: string;
@@ -16,12 +20,22 @@ interface StockInfo {
 }
 
 export default function ConsultingPage() {
+  const searchParams = useSearchParams();
   const [selectedStock, setSelectedStock] = useState<StockInfo | null>(null);
   const [consultCharacter, setConsultCharacter] = useState<CharacterType | null>(null);
   const [isMultiConsultOpen, setIsMultiConsultOpen] = useState(false);
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [isLoadingPrice, setIsLoadingPrice] = useState(false);
+  const [investorTypeInfo, setInvestorTypeInfo] = useState<InvestorTypeInfo | null>(null);
   const { showToast } = useToast();
+
+  // URL에서 투자 성향 정보 가져오기
+  useEffect(() => {
+    const typeParam = searchParams.get('investorType');
+    if (typeParam && INVESTOR_TYPES[typeParam as InvestorType]) {
+      setInvestorTypeInfo(getInvestorTypeInfo(typeParam as InvestorType));
+    }
+  }, [searchParams]);
 
   // 상담 버튼 클릭 핸들러
   const handleConsultClick = (charId: CharacterType) => {
@@ -99,6 +113,50 @@ export default function ConsultingPage() {
       <Header />
       <main className="min-h-screen bg-dark-950 pt-28 pb-16">
         <div className="container-app">
+          {/* Investor Type Badge */}
+          {investorTypeInfo && (
+            <div className="mb-8">
+              <div className={`card p-6 bg-gradient-to-r ${investorTypeInfo.gradient} bg-opacity-10 border-none relative overflow-hidden`}>
+                <div className="absolute inset-0 bg-dark-950/85" />
+                <div className="relative z-10">
+                  <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-5xl">{investorTypeInfo.emoji}</span>
+                      <div>
+                        <p className="text-dark-400 text-sm mb-1">나의 투자 성향</p>
+                        <h2 className={`text-2xl font-bold ${investorTypeInfo.color}`}>
+                          {investorTypeInfo.name}
+                        </h2>
+                        <p className="text-dark-500 text-sm">{investorTypeInfo.type}</p>
+                      </div>
+                    </div>
+                    <div className="flex-1 md:text-right">
+                      <p className="text-dark-300 text-sm mb-2">
+                        {investorTypeInfo.title}
+                      </p>
+                      <div className="flex flex-wrap gap-2 md:justify-end">
+                        {investorTypeInfo.recommendedSectors.slice(0, 3).map((sector, i) => (
+                          <span
+                            key={i}
+                            className={`px-2 py-1 rounded-lg bg-gradient-to-r ${investorTypeInfo.gradient} bg-opacity-20 text-dark-200 text-xs`}
+                          >
+                            {sector}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-dark-700/50">
+                    <p className="text-dark-400 text-sm">
+                      💡 <span className={investorTypeInfo.color}>AI 전문가들이 {investorTypeInfo.name} 성향에 맞춰 맞춤형 투자 조언</span>을 드립니다.
+                      종목을 선택하면 당신의 투자 성향을 고려한 분석을 받을 수 있어요.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Page Header */}
           <div className="text-center mb-12">
             {selectedStock ? (
@@ -130,19 +188,36 @@ export default function ConsultingPage() {
                   </div>
                 )}
                 <p className="text-dark-400 max-w-2xl mx-auto">
-                  이 종목에 대해 3명의 AI 전문가에게 심층 분석과 투자 조언을 받아보세요.
+                  {investorTypeInfo 
+                    ? `${investorTypeInfo.name} 성향에 맞춰 이 종목에 대한 맞춤형 투자 조언을 받아보세요.`
+                    : '이 종목에 대해 3명의 AI 전문가에게 심층 분석과 투자 조언을 받아보세요.'}
                 </p>
               </>
             ) : (
               <>
                 <h1 className="text-3xl md:text-4xl font-bold text-dark-50 mb-4">
-                  AI Expert Consulting
+                  {investorTypeInfo 
+                    ? `${investorTypeInfo.emoji} ${investorTypeInfo.name} 맞춤 상담`
+                    : 'AI Expert Consulting'}
                 </h1>
                 <p className="text-dark-400 max-w-2xl mx-auto">
-                  3명의 AI 전문가에게 관심 종목에 대한 심층 분석과 투자 조언을 받아보세요.
+                  {investorTypeInfo 
+                    ? `${investorTypeInfo.name} 성향에 맞춘 종목 분석과 투자 조언을 받아보세요.`
+                    : '3명의 AI 전문가에게 관심 종목에 대한 심층 분석과 투자 조언을 받아보세요.'}
                   <br />
-                  각 전문가의 고유한 투자 철학에 따른 다양한 관점을 확인할 수 있습니다.
+                  {investorTypeInfo 
+                    ? `추천 섹터: ${investorTypeInfo.recommendedSectors.slice(0, 4).join(', ')}`
+                    : '각 전문가의 고유한 투자 철학에 따른 다양한 관점을 확인할 수 있습니다.'}
                 </p>
+                {!investorTypeInfo && (
+                  <Link
+                    href="/investment-style"
+                    className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 text-dark-300 text-sm transition-colors"
+                  >
+                    <span>🧬</span>
+                    <span>투자 성향 분석하고 맞춤 상담받기</span>
+                  </Link>
+                )}
               </>
             )}
           </div>
@@ -371,6 +446,8 @@ export default function ConsultingPage() {
             change: selectedStock.change,
             changePercent: selectedStock.changePercent,
           }}
+          investorType={investorTypeInfo?.type}
+          investorTypeName={investorTypeInfo?.name}
         />
       )}
 

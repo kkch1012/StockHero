@@ -570,10 +570,11 @@ export default function InvestmentStylePage() {
                     🔄 다시 테스트하기
                   </button>
                   <Link
-                    href="/consulting"
-                    className="px-6 py-3 bg-brand-500 text-white font-medium rounded-xl hover:bg-brand-600 transition-colors"
+                    href={`/consulting?investorType=${result.type}`}
+                    className={`px-6 py-3 bg-gradient-to-r ${result.gradient} text-white font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2`}
                   >
-                    💬 AI 상담받기
+                    <span>{result.emoji}</span>
+                    <span>{result.name} 맞춤 AI 상담받기</span>
                   </Link>
                 </motion.div>
               </motion.div>

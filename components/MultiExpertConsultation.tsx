@@ -30,6 +30,8 @@ interface MultiExpertConsultationProps {
   stockSymbol?: string;
   stockName?: string;
   stockData?: StockData;
+  investorType?: string;
+  investorTypeName?: string;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -45,6 +47,8 @@ export function MultiExpertConsultation({
   stockSymbol, 
   stockName,
   stockData,
+  investorType,
+  investorTypeName,
 }: MultiExpertConsultationProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -91,7 +95,12 @@ export function MultiExpertConsultation({
         setCurrentTypingMessage('');
 
         // 이전 전문가들의 의견을 포함한 프롬프트 구성
-        let prompt = `${stockName}(${stockSymbol})에 대한 당신의 투자 관점과 핵심 의견을 말해주세요. 현재가 ${stockData.currentPrice?.toLocaleString() || '정보없음'}원입니다.`;
+        // 투자 성향 정보 포함
+        const investorContext = investorType && investorTypeName 
+          ? `\n\n[투자자 성향: ${investorTypeName} (${investorType})]\n이 투자자의 성향에 맞춰 조언해주세요.`
+          : '';
+        
+        let prompt = `${stockName}(${stockSymbol})에 대한 당신의 투자 관점과 핵심 의견을 말해주세요. 현재가 ${stockData.currentPrice?.toLocaleString() || '정보없음'}원입니다.${investorContext}`;
         
         // 첫 번째 전문가가 아니면 이전 의견들을 참고하도록 함
         if (previousOpinions.length > 0) {
@@ -110,7 +119,7 @@ ${otherOpinions}
 1. 다른 전문가의 의견에 동의하거나 반박할 부분이 있다면 언급해주세요
 2. 다른 관점에서 놓친 부분이 있다면 보완해주세요
 3. 당신의 고유한 분석 방법론(${expert === 'claude' ? '밸류에이션/펀더멘털' : expert === 'gemini' ? '성장성/트렌드' : '매크로/리스크'})으로 평가해주세요
-
+${investorContext}
 현재가: ${stockData.currentPrice?.toLocaleString() || '정보없음'}원`;
         }
 
@@ -218,15 +227,20 @@ ${otherOpinions}
         setIsTyping(true);
         setCurrentTypingMessage('');
 
+        // 투자 성향 컨텍스트
+        const investorContext = investorType && investorTypeName 
+          ? `\n[투자자 성향: ${investorTypeName}] - 이 성향에 맞춰 조언해주세요.`
+          : '';
+
         // 이번 라운드에서 이미 답변한 전문가들의 의견을 포함
-        let contextualPrompt = userMessage.content;
+        let contextualPrompt = userMessage.content + investorContext;
         if (currentRoundOpinions.length > 0) {
           const otherOpinions = currentRoundOpinions.map(op => {
             const charName = CHARACTERS[op.expert].name;
             return `[${charName}의 이번 답변]\n${op.content}`;
           }).join('\n\n');
           
-          contextualPrompt = `사용자 질문: ${userMessage.content}
+          contextualPrompt = `사용자 질문: ${userMessage.content}${investorContext}
 
 ---
 이번 질문에 대해 다른 전문가들의 답변:
