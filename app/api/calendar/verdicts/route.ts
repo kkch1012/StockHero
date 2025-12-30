@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     const { data: dbVerdicts, error } = await supabase
       .from('verdicts')
-      .select('date, top5, consensus_summary')
+      .select('date, top5, claude_top5, gemini_top5, gpt_top5, consensus_summary')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
@@ -177,6 +177,7 @@ export async function GET(request: NextRequest) {
       const dateObj = new Date(v.date);
       const dayOfWeek = dateObj.getDay();
       const theme = DAY_THEMES[dayOfWeek];
+      const dbVerdict = dbVerdicts?.find((d: any) => d.date === v.date);
       
       return {
         date: v.date,
@@ -191,7 +192,11 @@ export async function GET(request: NextRequest) {
           geminiScore: item.geminiScore,
           gptScore: item.gptScore,
         })),
-        consensusSummary: dbVerdicts?.find((d: any) => d.date === v.date)?.consensus_summary,
+        // 각 AI별 개별 Top 5
+        claudeTop5: dbVerdict?.claude_top5 || [],
+        geminiTop5: dbVerdict?.gemini_top5 || [],
+        gptTop5: dbVerdict?.gpt_top5 || [],
+        consensusSummary: dbVerdict?.consensus_summary,
       };
     });
 

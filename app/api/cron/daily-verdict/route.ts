@@ -418,14 +418,42 @@ export async function GET(request: NextRequest) {
       throw new Error('Failed to generate Top 5');
     }
 
-    // 6. Verdict 저장
+    // 6. Verdict 저장 (각 AI별 개별 Top 5 포함)
     const consensusSummary = `${todayTheme.emoji} 오늘의 테마: ${todayTheme.name} | ${top5.filter(t => t.isUnanimous).length}개 종목 만장일치. 1위 ${top5[0]?.name}(${top5[0]?.symbol}) 평균 ${top5[0]?.avgScore}점`;
+
+    // 각 AI의 개별 Top 5 정리
+    const claudeTop5WithInfo = claudeTop5.map((item, idx) => ({
+      rank: idx + 1,
+      symbol: item.symbol,
+      name: ANALYSIS_STOCKS.find(s => s.symbol === item.symbol)?.name || item.name,
+      score: item.score || (5 - idx * 0.5),
+      reason: item.reason || '',
+    }));
+
+    const geminiTop5WithInfo = geminiTop5.map((item, idx) => ({
+      rank: idx + 1,
+      symbol: item.symbol,
+      name: ANALYSIS_STOCKS.find(s => s.symbol === item.symbol)?.name || item.name,
+      score: item.score || (5 - idx * 0.5),
+      reason: item.reason || '',
+    }));
+
+    const gptTop5WithInfo = gptTop5.map((item, idx) => ({
+      rank: idx + 1,
+      symbol: item.symbol,
+      name: ANALYSIS_STOCKS.find(s => s.symbol === item.symbol)?.name || item.name,
+      score: item.score || (5 - idx * 0.5),
+      reason: item.reason || '',
+    }));
 
     const { data: verdict, error } = await supabase
       .from('verdicts')
       .insert({
         date: today,
         top5: top5,
+        claude_top5: claudeTop5WithInfo,
+        gemini_top5: geminiTop5WithInfo,
+        gpt_top5: gptTop5WithInfo,
         consensus_summary: consensusSummary,
       })
       .select()

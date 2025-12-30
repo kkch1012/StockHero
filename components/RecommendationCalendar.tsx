@@ -3,9 +3,18 @@
 import { useState, useEffect } from 'react';
 import { CharacterAvatar } from './CharacterAvatar';
 
+interface StockRecommendation {
+  rank: number;
+  symbol: string;
+  name: string;
+  score: number;
+  reason?: string;
+}
+
 interface DayRecommendation {
   date: string;
   theme?: { name: string; emoji: string };
+  // 합의된 Top 5
   top5: Array<{
     rank: number;
     symbol: string;
@@ -16,6 +25,10 @@ interface DayRecommendation {
     geminiScore?: number;
     gptScore?: number;
   }>;
+  // 각 AI별 개별 Top 5
+  claudeTop5?: StockRecommendation[];
+  geminiTop5?: StockRecommendation[];
+  gptTop5?: StockRecommendation[];
   consensusSummary?: string;
 }
 
@@ -34,10 +47,19 @@ const DAY_THEMES: Record<number, { name: string; emoji: string; color: string }>
   6: { name: '히든 젬', emoji: '🌟', color: 'bg-pink-500' },
 };
 
+// AI 전문가 정보
+const AI_EXPERTS = [
+  { id: 'consensus', name: '합의', icon: '🤝', color: 'text-white', bgColor: 'bg-gradient-to-r from-blue-500 via-purple-500 to-amber-500' },
+  { id: 'claude', name: '클로드 리', icon: null, color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
+  { id: 'gemini', name: '제미 나인', icon: null, color: 'text-purple-400', bgColor: 'bg-purple-500/20' },
+  { id: 'gpt', name: 'G.P. 테일러', icon: null, color: 'text-amber-400', bgColor: 'bg-amber-500/20' },
+];
+
 export function RecommendationCalendar({ initialMonth = new Date() }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(initialMonth);
   const [recommendations, setRecommendations] = useState<Map<string, DayRecommendation>>(new Map());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedExpert, setSelectedExpert] = useState<string>('consensus');
   const [loading, setLoading] = useState(true);
 
   // Fetch recommendations for the current month
@@ -77,12 +99,10 @@ export function RecommendationCalendar({ initialMonth = new Date() }: CalendarPr
 
     const days: (number | null)[] = [];
     
-    // Add empty days for the first week
     for (let i = 0; i < startingDay; i++) {
       days.push(null);
     }
     
-    // Add days of the month
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(i);
     }
@@ -113,11 +133,28 @@ export function RecommendationCalendar({ initialMonth = new Date() }: CalendarPr
 
   const selectedRecommendation = selectedDate ? recommendations.get(selectedDate) : null;
 
-  // Get theme for a specific day
   const getThemeForDate = (day: number) => {
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     return DAY_THEMES[date.getDay()];
   };
+
+  // 현재 선택된 전문가의 Top 5 가져오기
+  const getExpertTop5 = () => {
+    if (!selectedRecommendation) return [];
+    
+    switch (selectedExpert) {
+      case 'claude':
+        return selectedRecommendation.claudeTop5 || [];
+      case 'gemini':
+        return selectedRecommendation.geminiTop5 || [];
+      case 'gpt':
+        return selectedRecommendation.gptTop5 || [];
+      default:
+        return selectedRecommendation.top5 || [];
+    }
+  };
+
+  const expertTop5 = getExpertTop5();
 
   return (
     <div className="glass rounded-2xl p-4 sm:p-6">
@@ -216,6 +253,7 @@ export function RecommendationCalendar({ initialMonth = new Date() }: CalendarPr
         </div>
       ) : selectedRecommendation ? (
         <div className="border-t border-dark-700 pt-6">
+          {/* Date & Theme Header */}
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">{selectedRecommendation.theme?.emoji || '📊'}</span>
             <div>
@@ -228,63 +266,102 @@ export function RecommendationCalendar({ initialMonth = new Date() }: CalendarPr
             </div>
           </div>
 
-          {/* Top 5 List */}
-          <div className="space-y-3">
-            {selectedRecommendation.top5.map((stock) => (
-              <div
-                key={stock.symbol}
-                className="bg-dark-800/50 rounded-xl p-4 hover:bg-dark-800 transition-colors"
+          {/* Expert Tabs */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            {AI_EXPERTS.map((expert) => (
+              <button
+                key={expert.id}
+                onClick={() => setSelectedExpert(expert.id)}
+                className={`
+                  flex items-center gap-2 px-3 py-2 rounded-lg whitespace-nowrap transition-all
+                  ${selectedExpert === expert.id 
+                    ? `${expert.bgColor} ${expert.color} font-bold` 
+                    : 'bg-dark-800 text-dark-400 hover:text-white'
+                  }
+                `}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className={`
-                      w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold
-                      ${stock.rank === 1 ? 'bg-yellow-500 text-black' :
-                        stock.rank === 2 ? 'bg-gray-400 text-black' :
-                        stock.rank === 3 ? 'bg-amber-600 text-white' :
-                        'bg-dark-700 text-dark-300'}
-                    `}>
-                      {stock.rank}
-                    </span>
-                    <div>
-                      <p className="font-medium text-white">{stock.name}</p>
-                      <p className="text-xs text-dark-400">{stock.symbol}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-primary-400">{stock.avgScore}점</p>
-                    {stock.isUnanimous && (
-                      <span className="text-xs text-yellow-400">✨ 만장일치</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* AI Scores */}
-                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-dark-700">
-                  <div className="flex items-center gap-1.5">
-                    <CharacterAvatar character="claude" size="xs" />
-                    <span className={`text-xs ${stock.claudeScore ? 'text-blue-400' : 'text-dark-500'}`}>
-                      {stock.claudeScore?.toFixed(1) || '-'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CharacterAvatar character="gemini" size="xs" />
-                    <span className={`text-xs ${stock.geminiScore ? 'text-purple-400' : 'text-dark-500'}`}>
-                      {stock.geminiScore?.toFixed(1) || '-'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CharacterAvatar character="gpt" size="xs" />
-                    <span className={`text-xs ${stock.gptScore ? 'text-amber-400' : 'text-dark-500'}`}>
-                      {stock.gptScore?.toFixed(1) || '-'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                {expert.icon ? (
+                  <span>{expert.icon}</span>
+                ) : (
+                  <CharacterAvatar character={expert.id as 'claude' | 'gemini' | 'gpt'} size="xs" />
+                )}
+                <span className="text-sm">{expert.name}</span>
+              </button>
             ))}
           </div>
 
-          {selectedRecommendation.consensusSummary && (
+          {/* Top 5 List */}
+          <div className="space-y-3">
+            {expertTop5.length > 0 ? (
+              expertTop5.map((stock: any, idx: number) => (
+                <div
+                  key={stock.symbol}
+                  className="bg-dark-800/50 rounded-xl p-4 hover:bg-dark-800 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className={`
+                        w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold
+                        ${(stock.rank || idx + 1) === 1 ? 'bg-yellow-500 text-black' :
+                          (stock.rank || idx + 1) === 2 ? 'bg-gray-400 text-black' :
+                          (stock.rank || idx + 1) === 3 ? 'bg-amber-600 text-white' :
+                          'bg-dark-700 text-dark-300'}
+                      `}>
+                        {stock.rank || idx + 1}
+                      </span>
+                      <div>
+                        <p className="font-medium text-white">{stock.name}</p>
+                        <p className="text-xs text-dark-400">{stock.symbol}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-primary-400">
+                        {(stock.avgScore || stock.score)?.toFixed(1)}점
+                      </p>
+                      {stock.isUnanimous && (
+                        <span className="text-xs text-yellow-400">✨ 만장일치</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reason (for individual expert) */}
+                  {stock.reason && selectedExpert !== 'consensus' && (
+                    <p className="text-xs text-dark-300 mt-2 line-clamp-2">{stock.reason}</p>
+                  )}
+
+                  {/* AI Scores (only for consensus view) */}
+                  {selectedExpert === 'consensus' && (
+                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-dark-700">
+                      <div className="flex items-center gap-1.5">
+                        <CharacterAvatar character="claude" size="xs" />
+                        <span className={`text-xs ${stock.claudeScore ? 'text-blue-400' : 'text-dark-500'}`}>
+                          {stock.claudeScore?.toFixed(1) || '-'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <CharacterAvatar character="gemini" size="xs" />
+                        <span className={`text-xs ${stock.geminiScore ? 'text-purple-400' : 'text-dark-500'}`}>
+                          {stock.geminiScore?.toFixed(1) || '-'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <CharacterAvatar character="gpt" size="xs" />
+                        <span className={`text-xs ${stock.gptScore ? 'text-amber-400' : 'text-dark-500'}`}>
+                          {stock.gptScore?.toFixed(1) || '-'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-dark-400">
+                <p className="text-sm">해당 전문가의 추천 데이터가 없습니다</p>
+              </div>
+            )}
+          </div>
+
+          {selectedRecommendation.consensusSummary && selectedExpert === 'consensus' && (
             <div className="mt-4 p-3 bg-primary-500/10 rounded-lg">
               <p className="text-sm text-primary-300">{selectedRecommendation.consensusSummary}</p>
             </div>
@@ -300,4 +377,3 @@ export function RecommendationCalendar({ initialMonth = new Date() }: CalendarPr
     </div>
   );
 }
-
