@@ -276,11 +276,11 @@ export default function ThemesPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-dark-500">전망:</span>
                     <span className={`text-sm font-medium ${
-                      analysis.analysis.outlook.includes('bullish') ? 'text-green-400' :
-                      analysis.analysis.outlook.includes('bearish') ? 'text-red-400' :
+                      (analysis.analysis.outlook || '').includes('bullish') ? 'text-green-400' :
+                      (analysis.analysis.outlook || '').includes('bearish') ? 'text-red-400' :
                       'text-yellow-400'
                     }`}>
-                      {analysis.analysis.outlook}
+                      {analysis.analysis.outlook || '분석 중'}
                     </span>
                   </div>
                 </div>
