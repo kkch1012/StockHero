@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { CharacterAvatar } from '@/components/CharacterAvatar';
 import { DisclaimerBar, Header } from '@/components';
+import { RecommendationCalendar } from '@/components/RecommendationCalendar';
 
 // 캐릭터 히어로 데이터
 const HEROES = [
@@ -172,6 +173,19 @@ export default function HeroesPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Recommendation Calendar */}
+      <section className="container-app mt-16">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+            <span className="text-gradient">📅 AI 추천 히스토리</span>
+          </h2>
+          <p className="text-dark-400">
+            매일 오전 8시, AI들의 추천이 자동으로 업데이트됩니다
+          </p>
+        </div>
+        <RecommendationCalendar />
       </section>
 
       {/* Bottom CTA */}

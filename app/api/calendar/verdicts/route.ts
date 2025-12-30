@@ -161,9 +161,43 @@ export async function GET(request: NextRequest) {
       verdicts.push(formatted);
     }
 
+    // 요일별 테마 정보
+    const DAY_THEMES: Record<number, { name: string; emoji: string }> = {
+      0: { name: '종합 밸런스', emoji: '⚖️' },
+      1: { name: '성장주 포커스', emoji: '🚀' },
+      2: { name: '배당 투자', emoji: '💰' },
+      3: { name: '가치 투자', emoji: '💎' },
+      4: { name: '테마 & 트렌드', emoji: '🔥' },
+      5: { name: '블루칩', emoji: '🏆' },
+      6: { name: '히든 젬', emoji: '🌟' },
+    };
+
+    // Convert to calendar format with theme info
+    const calendarVerdicts = verdicts.map(v => {
+      const dateObj = new Date(v.date);
+      const dayOfWeek = dateObj.getDay();
+      const theme = DAY_THEMES[dayOfWeek];
+      
+      return {
+        date: v.date,
+        theme: theme,
+        top5: v.top5.map((item: any) => ({
+          rank: item.rank,
+          symbol: item.symbolCode,
+          name: item.symbolName,
+          avgScore: item.avgScore,
+          isUnanimous: item.claudeScore > 0 && item.geminiScore > 0 && item.gptScore > 0,
+          claudeScore: item.claudeScore,
+          geminiScore: item.geminiScore,
+          gptScore: item.gptScore,
+        })),
+        consensusSummary: dbVerdicts?.find((d: any) => d.date === v.date)?.consensus_summary,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: verdicts,
+      verdicts: calendarVerdicts,
       dbCount: verdicts.length,
       todayHasData: verdicts.some(v => v.date === todayStr),
     });

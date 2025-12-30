@@ -197,3 +197,4 @@ export function simulateInvestment(amount: number, range: TimeRange): {
 
 
 
+
