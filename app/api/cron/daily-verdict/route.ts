@@ -369,6 +369,10 @@ export async function GET(request: NextRequest) {
   console.log(`[${today}] Starting daily verdict generation...`);
   console.log(`[${today}] Today's theme: ${todayTheme.emoji} ${todayTheme.name}`);
 
+  // force 파라미터 확인 (기존 데이터 삭제 후 재생성)
+  const { searchParams } = new URL(request.url);
+  const force = searchParams.get('force') === 'true';
+
   try {
     // 1. 오늘 이미 생성된 verdict가 있는지 확인
     const { data: existingVerdict } = await supabase
@@ -377,13 +381,20 @@ export async function GET(request: NextRequest) {
       .eq('date', today)
       .single();
 
-    if (existingVerdict) {
+    if (existingVerdict && !force) {
       console.log(`[${today}] Verdict already exists for today`);
       return NextResponse.json({ 
         success: true, 
         message: 'Verdict already exists for today',
         verdict: existingVerdict 
       });
+    }
+
+    // force가 true면 기존 데이터 삭제
+    if (existingVerdict && force) {
+      console.log(`[${today}] Force regeneration - deleting existing verdict...`);
+      await supabase.from('verdicts').delete().eq('date', today);
+      await supabase.from('predictions').delete().eq('date', today);
     }
 
     // 2. 테마에 맞는 종목 필터링
