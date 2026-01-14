@@ -470,20 +470,30 @@ export async function GET(request: NextRequest) {
       reason: item.reason || '',
     }));
 
+    // 먼저 기본 컬럼만으로 INSERT 시도
+    const insertData: any = {
+      date: today,
+      top5: top5,
+      consensus_summary: consensusSummary,
+    };
+    
+    // 새 컬럼이 있으면 추가 (없어도 에러 안남)
+    try {
+      insertData.claude_top5 = claudeTop5WithInfo;
+      insertData.gemini_top5 = geminiTop5WithInfo;
+      insertData.gpt_top5 = gptTop5WithInfo;
+    } catch (e) {
+      console.log('New columns not available, skipping...');
+    }
+
     const { data: verdict, error } = await supabase
       .from('verdicts')
-      .insert({
-        date: today,
-        top5: top5,
-        claude_top5: claudeTop5WithInfo,
-        gemini_top5: geminiTop5WithInfo,
-        gpt_top5: gptTop5WithInfo,
-        consensus_summary: consensusSummary,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
+      console.error('Supabase INSERT error:', error);
       throw error;
     }
 
