@@ -358,19 +358,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // 한국 시간 기준 오늘 날짜
-  const now = new Date();
-  const kstOffset = 9 * 60; // UTC+9
-  const kstTime = new Date(now.getTime() + (kstOffset + now.getTimezoneOffset()) * 60 * 1000);
-  const today = kstTime.toISOString().split('T')[0];
+  // URL 파라미터에서 date 확인 (과거 날짜 생성용)
+  const { searchParams } = new URL(request.url);
+  const customDate = searchParams.get('date');
   
-  // 오늘의 테마 결정
-  const todayTheme = getTodayTheme(kstTime);
+  let today: string;
+  let dateForTheme: Date;
+  
+  if (customDate && /^\d{4}-\d{2}-\d{2}$/.test(customDate)) {
+    // 커스텀 날짜 사용
+    today = customDate;
+    dateForTheme = new Date(customDate + 'T00:00:00+09:00');
+  } else {
+    // 한국 시간 기준 오늘 날짜
+    const now = new Date();
+    const kstOffset = 9 * 60; // UTC+9
+    const kstTime = new Date(now.getTime() + (kstOffset + now.getTimezoneOffset()) * 60 * 1000);
+    today = kstTime.toISOString().split('T')[0];
+    dateForTheme = kstTime;
+  }
+  
+  // 해당 날짜의 테마 결정
+  const todayTheme = getTodayTheme(dateForTheme);
   console.log(`[${today}] Starting daily verdict generation...`);
   console.log(`[${today}] Today's theme: ${todayTheme.emoji} ${todayTheme.name}`);
 
   // force 파라미터 확인 (기존 데이터 삭제 후 재생성)
-  const { searchParams } = new URL(request.url);
   const force = searchParams.get('force') === 'true';
 
   try {
