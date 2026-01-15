@@ -40,28 +40,12 @@ interface BacktestResult {
   symbol: string;
   name: string;
   firstRecommendDate: string;
-  firstRecommendPrice: number;
-  currentPrice: number;
-  returnPercent: number;
-  maxReturnPercent: number; // 추천 후 최고 수익률
-  targetHitRate: number; // 목표가(+10%) 도달률
+  firstRecommendPrice: number;  // 최초 추천가
+  currentPrice: number;         // 현재가
+  returnPercent: number;        // 수익률 (최초 추천가 vs 현재가)
   totalRecommendations: number;
   avgRank: number;
   unanimousCount: number;
-}
-
-// 최고가 시뮬레이션 (추천 후 1개월 내 최고 상승률 추정)
-function estimateMaxReturn(symbol: string, firstPrice: number, currentPrice: number, days: number): number {
-  // 실제로는 과거 데이터가 필요하지만, 현재가 대비 변동성을 고려한 추정
-  // 방산/AI/반도체 섹터는 변동성이 높아 더 높은 수익 기회
-  const highVolatilityStocks = ['012450', '047810', '079550', '443060', '454910', '042700', '000660'];
-  const volatilityMultiplier = highVolatilityStocks.includes(symbol) ? 1.5 : 1.0;
-  
-  // 기본 수익률에 변동성 프리미엄 추가 (과거 데이터 시뮬레이션)
-  const baseReturn = ((currentPrice - firstPrice) / firstPrice) * 100;
-  const estimatedPeak = baseReturn + (Math.abs(baseReturn) * 0.3 + 5) * volatilityMultiplier;
-  
-  return Math.max(baseReturn, estimatedPeak);
 }
 
 export async function GET(request: NextRequest) {
@@ -91,13 +75,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 종목별 추천 이력 집계
+    // 종목별 추천 이력 집계 - 최초 추천일의 가격만 저장
     const stockStats = new Map<string, {
       symbol: string;
       name: string;
       firstDate: string;
-      firstPrice: number;
-      recommendations: { date: string; rank: number; price: number; isUnanimous: boolean }[];
+      firstPrice: number;  // 최초 추천일의 가격
+      recommendations: { date: string; rank: number; isUnanimous: boolean }[];
     }>();
 
     verdicts.forEach((verdict: any) => {
@@ -108,11 +92,12 @@ export async function GET(request: NextRequest) {
         const isUnanimous = stock.isUnanimous || (stock.claudeScore > 0 && stock.geminiScore > 0 && stock.gptScore > 0);
 
         if (!stockStats.has(symbol)) {
+          // 최초 추천 시점의 데이터만 저장
           stockStats.set(symbol, {
             symbol,
             name: stock.name,
             firstDate: verdict.date,
-            firstPrice: price,
+            firstPrice: price,  // 최초 추천가
             recommendations: [],
           });
         }
@@ -120,7 +105,6 @@ export async function GET(request: NextRequest) {
         stockStats.get(symbol)!.recommendations.push({
           date: verdict.date,
           rank: stock.rank,
-          price,
           isUnanimous,
         });
       });
@@ -145,18 +129,10 @@ export async function GET(request: NextRequest) {
       
       if (!currentPrice || !stats.firstPrice || stats.firstPrice === 0) continue;
 
+      // 단순 수익률 계산: (현재가 - 최초추천가) / 최초추천가 * 100
       const returnPercent = ((currentPrice - stats.firstPrice) / stats.firstPrice) * 100;
       const avgRank = stats.recommendations.reduce((sum, r) => sum + r.rank, 0) / stats.recommendations.length;
       const unanimousCount = stats.recommendations.filter(r => r.isUnanimous).length;
-      
-      // 추천 후 경과 일수
-      const daysSinceFirst = Math.floor((new Date().getTime() - new Date(stats.firstDate).getTime()) / (1000 * 60 * 60 * 24));
-      
-      // 최고 수익률 추정 (방산/AI 등 핫섹터 프리미엄)
-      const maxReturnPercent = estimateMaxReturn(symbol, stats.firstPrice, currentPrice, daysSinceFirst);
-      
-      // 목표가(+10%) 도달률 추정
-      const targetHitRate = maxReturnPercent >= 10 ? 100 : (maxReturnPercent >= 5 ? 70 : (maxReturnPercent >= 0 ? 50 : 30));
 
       results.push({
         symbol,
@@ -164,35 +140,33 @@ export async function GET(request: NextRequest) {
         firstRecommendDate: stats.firstDate,
         firstRecommendPrice: stats.firstPrice,
         currentPrice,
-        returnPercent,
-        maxReturnPercent: Math.round(maxReturnPercent * 10) / 10,
-        targetHitRate,
+        returnPercent: Math.round(returnPercent * 100) / 100,
         totalRecommendations: stats.recommendations.length,
         avgRank: Math.round(avgRank * 10) / 10,
         unanimousCount,
       });
     }
 
-    // 최고 수익률 순으로 정렬
-    results.sort((a, b) => b.maxReturnPercent - a.maxReturnPercent);
+    // 수익률 순으로 정렬
+    results.sort((a, b) => b.returnPercent - a.returnPercent);
 
-    // 요약 통계 (최고 수익률 기준)
-    const positiveReturns = results.filter(r => r.maxReturnPercent > 0);
-    const negativeReturns = results.filter(r => r.maxReturnPercent <= 0);
+    // 요약 통계
+    const positiveReturns = results.filter(r => r.returnPercent > 0);
+    const negativeReturns = results.filter(r => r.returnPercent < 0);
     const avgReturn = results.length > 0 
-      ? results.reduce((sum, r) => sum + r.maxReturnPercent, 0) / results.length 
+      ? results.reduce((sum, r) => sum + r.returnPercent, 0) / results.length 
       : 0;
 
     // 만장일치 종목만 필터링한 수익률
     const unanimousResults = results.filter(r => r.unanimousCount > 0);
     const avgUnanimousReturn = unanimousResults.length > 0
-      ? unanimousResults.reduce((sum, r) => sum + r.maxReturnPercent, 0) / unanimousResults.length
+      ? unanimousResults.reduce((sum, r) => sum + r.returnPercent, 0) / unanimousResults.length
       : 0;
 
     // Top 1 종목만 투자했을 때
     const top1Results = results.filter(r => r.avgRank <= 1.5);
     const avgTop1Return = top1Results.length > 0
-      ? top1Results.reduce((sum, r) => sum + r.maxReturnPercent, 0) / top1Results.length
+      ? top1Results.reduce((sum, r) => sum + r.returnPercent, 0) / top1Results.length
       : 0;
 
     const summary = {
@@ -206,12 +180,12 @@ export async function GET(request: NextRequest) {
       bestReturn: results.length > 0 ? {
         symbol: results[0].symbol,
         name: results[0].name,
-        returnPercent: Math.round(results[0].maxReturnPercent * 100) / 100,
+        returnPercent: results[0].returnPercent,
       } : null,
       worstReturn: results.length > 0 ? {
         symbol: results[results.length - 1].symbol,
         name: results[results.length - 1].name,
-        returnPercent: Math.round(results[results.length - 1].maxReturnPercent * 100) / 100,
+        returnPercent: results[results.length - 1].returnPercent,
       } : null,
       strategies: {
         allStocks: {

@@ -7,11 +7,9 @@ interface BacktestResult {
   symbol: string;
   name: string;
   firstRecommendDate: string;
-  firstRecommendPrice: number;
-  currentPrice: number;
-  returnPercent: number;
-  maxReturnPercent: number;
-  targetHitRate: number;
+  firstRecommendPrice: number;  // 최초 추천가
+  currentPrice: number;         // 현재가
+  returnPercent: number;        // 수익률 (최초 추천가 vs 현재가)
   totalRecommendations: number;
   avgRank: number;
   unanimousCount: number;
@@ -267,15 +265,15 @@ export default function BacktestPage() {
                         <tr className="border-b border-dark-800">
                           <th className="px-4 py-3 text-left text-xs font-medium text-dark-500 uppercase">종목</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">첫 추천일</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">추천가</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">최초 추천가</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">현재가</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">최고 수익률</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">수익률</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">추천횟수</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-dark-800">
                         {results.map((result, idx) => (
-                          <tr key={result.symbol} className={`${getReturnBg(result.maxReturnPercent)} hover:bg-dark-800/50 transition-colors`}>
+                          <tr key={result.symbol} className={`${getReturnBg(result.returnPercent)} hover:bg-dark-800/50 transition-colors`}>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-dark-500">{idx + 1}</span>
@@ -299,8 +297,8 @@ export default function BacktestPage() {
                             <td className="px-4 py-3 text-right text-sm text-dark-200">
                               {formatPrice(result.currentPrice)}원
                             </td>
-                            <td className={`px-4 py-3 text-right text-sm font-bold ${getReturnColor(result.maxReturnPercent)}`}>
-                              {getReturnSign(result.maxReturnPercent)}{result.maxReturnPercent.toFixed(1)}%
+                            <td className={`px-4 py-3 text-right text-sm font-bold ${getReturnColor(result.returnPercent)}`}>
+                              {getReturnSign(result.returnPercent)}{result.returnPercent.toFixed(1)}%
                             </td>
                             <td className="px-4 py-3 text-right text-sm text-dark-400">
                               {result.totalRecommendations}회
