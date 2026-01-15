@@ -12,6 +12,8 @@ interface Top5Item {
   geminiScore: number;
   gptScore: number;
   isUnanimous: boolean;
+  price?: number; // 추천 당시 가격
+  currentPrice?: number; // 추천 당시 현재가 (DB에서 저장된 이름)
 }
 
 interface DayVerdict {
@@ -25,9 +27,18 @@ interface StockHistory {
   symbol: string;
   name: string;
   firstRecommendDate: string;
+  firstRecommendPrice?: number;
   totalDays: number;
   currentStreak: number;
-  recommendations: { date: string; rank: number; score: number }[];
+  recommendations: { date: string; rank: number; score: number; price?: number }[];
+  avgRecommendPrice?: number;
+}
+
+interface PriceData {
+  price: number;
+  change: number;
+  changePercent: number;
+  name?: string;
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -37,7 +48,9 @@ export default function CalendarPage() {
   const [verdicts, setVerdicts] = useState<Record<string, DayVerdict>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedStock, setSelectedStock] = useState<StockHistory | null>(null);
+  const [stockPrices, setStockPrices] = useState<Record<string, PriceData>>({});
   const [loading, setLoading] = useState(true);
+  const [priceLoading, setPriceLoading] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -45,6 +58,39 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchMonthVerdicts();
   }, [year, month]);
+
+  // 선택된 종목의 현재가 조회
+  useEffect(() => {
+    if (selectedStock && !stockPrices[selectedStock.symbol]) {
+      fetchStockPrice(selectedStock.symbol);
+    }
+  }, [selectedStock]);
+
+  const fetchStockPrice = async (symbol: string) => {
+    if (stockPrices[symbol]) return;
+    
+    setPriceLoading(true);
+    try {
+      const res = await fetch(`/api/stocks/price?symbol=${symbol}`);
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        setStockPrices(prev => ({
+          ...prev,
+          [symbol]: {
+            price: data.data.price,
+            change: data.data.change,
+            changePercent: data.data.changePercent,
+            name: data.data.name,
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch price:', error);
+    } finally {
+      setPriceLoading(false);
+    }
+  };
 
   const fetchMonthVerdicts = async () => {
     try {
@@ -74,11 +120,15 @@ export default function CalendarPage() {
     sortedDates.forEach(date => {
       const verdict = verdicts[date];
       verdict.top5.forEach(stock => {
+        // price는 currentPrice 또는 price 중 하나 사용
+        const stockPrice = stock.currentPrice || stock.price;
+        
         if (!histories[stock.symbol]) {
           histories[stock.symbol] = {
             symbol: stock.symbol,
             name: stock.name,
             firstRecommendDate: date,
+            firstRecommendPrice: stockPrice,
             totalDays: 0,
             currentStreak: 0,
             recommendations: [],
@@ -89,13 +139,28 @@ export default function CalendarPage() {
           date,
           rank: stock.rank,
           score: stock.avgScore,
+          price: stockPrice,
         });
       });
     });
 
-    // 연속 추천일 계산
+    // 연속 추천일 및 평균가 계산
     Object.values(histories).forEach(history => {
       history.recommendations.sort((a, b) => b.date.localeCompare(a.date));
+      
+      // 평균 추천가 계산
+      const pricesWithValue = history.recommendations.filter(r => r.price && r.price > 0);
+      if (pricesWithValue.length > 0) {
+        history.avgRecommendPrice = Math.round(
+          pricesWithValue.reduce((sum, r) => sum + (r.price || 0), 0) / pricesWithValue.length
+        );
+      }
+      
+      // 첫 추천가
+      const sortedByDate = [...history.recommendations].sort((a, b) => a.date.localeCompare(b.date));
+      if (sortedByDate[0]?.price) {
+        history.firstRecommendPrice = sortedByDate[0].price;
+      }
       
       let streak = 0;
       let prevDate: string | null = null;
@@ -128,7 +193,6 @@ export default function CalendarPage() {
     const history = stockHistories[symbol];
     if (!history) return null;
 
-    // 현재 날짜 기준으로 연속 추천 계산
     const sortedRecs = [...history.recommendations].sort((a, b) => a.date.localeCompare(b.date));
     
     let streak = 0;
@@ -168,6 +232,7 @@ export default function CalendarPage() {
     const history = stockHistories[symbol];
     if (history) {
       setSelectedStock(history);
+      fetchStockPrice(symbol);
     }
   };
 
@@ -220,6 +285,27 @@ export default function CalendarPage() {
     if (rank === 2) return 'bg-slate-400 text-black';
     if (rank === 3) return 'bg-amber-700 text-white';
     return 'bg-dark-700 text-dark-300';
+  };
+
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('ko-KR');
+  };
+
+  const getReturnColor = (returnPct: number) => {
+    if (returnPct > 0) return 'text-red-400';
+    if (returnPct < 0) return 'text-blue-400';
+    return 'text-dark-400';
+  };
+
+  const getReturnSign = (returnPct: number) => {
+    if (returnPct > 0) return '+';
+    return '';
+  };
+
+  // 수익률 계산
+  const calculateReturn = (currentPrice: number, basePrice: number) => {
+    if (!basePrice || basePrice === 0) return null;
+    return ((currentPrice - basePrice) / basePrice) * 100;
   };
 
   return (
@@ -353,7 +439,7 @@ export default function CalendarPage() {
                   </div>
                 </div>
               ) : selectedStock ? (
-                // Stock History View
+                // Stock History View with Price Info
                 <div>
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -370,8 +456,28 @@ export default function CalendarPage() {
                     </button>
                   </div>
 
+                  {/* Current Price */}
+                  {stockPrices[selectedStock.symbol] ? (
+                    <div className="bg-gradient-to-r from-brand-500/10 to-purple-500/10 border border-brand-500/20 rounded-xl p-4 mb-4">
+                      <p className="text-xs text-dark-500 mb-1">현재가</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-dark-100">
+                          {formatPrice(stockPrices[selectedStock.symbol].price)}원
+                        </span>
+                        <span className={`text-sm font-medium ${getReturnColor(stockPrices[selectedStock.symbol].changePercent)}`}>
+                          {getReturnSign(stockPrices[selectedStock.symbol].changePercent)}
+                          {stockPrices[selectedStock.symbol].changePercent.toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                  ) : priceLoading ? (
+                    <div className="bg-dark-800/50 rounded-xl p-4 mb-4 text-center">
+                      <div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                    </div>
+                  ) : null}
+
                   {/* Stats Cards */}
-                  <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="bg-dark-800/50 rounded-xl p-4 text-center">
                       <p className="text-2xl font-bold text-brand-400">{selectedStock.totalDays}일</p>
                       <p className="text-xs text-dark-500 mt-1">총 추천 일수</p>
@@ -382,7 +488,54 @@ export default function CalendarPage() {
                     </div>
                   </div>
 
-                  <div className="bg-dark-800/30 rounded-xl p-4 mb-6">
+                  {/* Price Comparison */}
+                  {stockPrices[selectedStock.symbol] && (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {/* 첫 추천일 대비 */}
+                      {selectedStock.firstRecommendPrice && selectedStock.firstRecommendPrice > 0 && (
+                        <div className="bg-dark-800/30 rounded-xl p-3">
+                          <p className="text-xs text-dark-500 mb-1">첫 추천 대비</p>
+                          <p className="text-sm text-dark-400">
+                            {formatPrice(selectedStock.firstRecommendPrice)}원
+                          </p>
+                          {(() => {
+                            const returnPct = calculateReturn(
+                              stockPrices[selectedStock.symbol].price,
+                              selectedStock.firstRecommendPrice!
+                            );
+                            return returnPct !== null ? (
+                              <p className={`text-lg font-bold ${getReturnColor(returnPct)}`}>
+                                {getReturnSign(returnPct)}{returnPct.toFixed(2)}%
+                              </p>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                      
+                      {/* 평균 추천가 대비 */}
+                      {selectedStock.avgRecommendPrice && selectedStock.avgRecommendPrice > 0 && (
+                        <div className="bg-dark-800/30 rounded-xl p-3">
+                          <p className="text-xs text-dark-500 mb-1">평균 추천가 대비</p>
+                          <p className="text-sm text-dark-400">
+                            {formatPrice(selectedStock.avgRecommendPrice)}원
+                          </p>
+                          {(() => {
+                            const returnPct = calculateReturn(
+                              stockPrices[selectedStock.symbol].price,
+                              selectedStock.avgRecommendPrice!
+                            );
+                            return returnPct !== null ? (
+                              <p className={`text-lg font-bold ${getReturnColor(returnPct)}`}>
+                                {getReturnSign(returnPct)}{returnPct.toFixed(2)}%
+                              </p>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="bg-dark-800/30 rounded-xl p-4 mb-4">
                     <p className="text-sm text-dark-500">첫 추천일</p>
                     <p className="text-lg font-bold text-dark-100">{selectedStock.firstRecommendDate}</p>
                   </div>
@@ -390,25 +543,42 @@ export default function CalendarPage() {
                   {/* Recommendation History */}
                   <div>
                     <p className="text-sm font-medium text-dark-400 mb-3">추천 이력</p>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                    <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2">
                       {selectedStock.recommendations
                         .sort((a, b) => b.date.localeCompare(a.date))
-                        .map((rec, i) => (
-                        <div
-                          key={rec.date}
-                          className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${getRankBadge(rec.rank)}`}>
-                              {rec.rank}
+                        .map((rec) => {
+                          const currentPrice = stockPrices[selectedStock.symbol]?.price;
+                          const returnPct = rec.price && currentPrice ? calculateReturn(currentPrice, rec.price) : null;
+                          
+                          return (
+                            <div
+                              key={rec.date}
+                              className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${getRankBadge(rec.rank)}`}>
+                                  {rec.rank}
+                                </div>
+                                <div>
+                                  <span className="text-sm text-dark-200">{rec.date}</span>
+                                  {rec.price && rec.price > 0 && (
+                                    <p className="text-xs text-dark-500">{formatPrice(rec.price)}원</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className={`font-bold ${getScoreColor(rec.score)}`}>
+                                  {rec.score.toFixed(1)}
+                                </span>
+                                {returnPct !== null && (
+                                  <p className={`text-xs ${getReturnColor(returnPct)}`}>
+                                    {getReturnSign(returnPct)}{returnPct.toFixed(1)}%
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <span className="text-sm text-dark-200">{rec.date}</span>
-                          </div>
-                          <span className={`font-bold ${getScoreColor(rec.score)}`}>
-                            {rec.score.toFixed(1)}
-                          </span>
-                        </div>
-                      ))}
+                          );
+                        })}
                     </div>
                   </div>
                 </div>
@@ -442,7 +612,6 @@ export default function CalendarPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-dark-100 truncate">{stock.name}</p>
-                              {/* Badges */}
                               {isFirstDay && (
                                 <span className="px-1.5 py-0.5 text-[10px] bg-green-500/20 text-green-400 rounded font-medium">
                                   NEW
@@ -478,7 +647,7 @@ export default function CalendarPage() {
 
                   {/* Info */}
                   <div className="mt-4 text-center">
-                    <p className="text-xs text-dark-600">종목을 클릭하면 추천 이력을 확인할 수 있습니다</p>
+                    <p className="text-xs text-dark-600">종목을 클릭하면 추천 이력과 수익률을 확인할 수 있습니다</p>
                   </div>
 
                   {/* Consensus */}
