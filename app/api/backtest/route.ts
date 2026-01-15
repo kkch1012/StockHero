@@ -123,7 +123,8 @@ export async function GET(request: NextRequest) {
     const prices = await Promise.all(pricePromises);
     const priceMap = new Map(prices.map(p => [p.symbol, p.price]));
 
-    for (const [symbol, stats] of stockStats) {
+    for (const symbol of Array.from(stockStats.keys())) {
+      const stats = stockStats.get(symbol)!;
       const currentPrice = priceMap.get(symbol);
       
       if (!currentPrice || !stats.firstPrice || stats.firstPrice === 0) continue;
