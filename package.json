@@ -16,8 +16,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@google/generative-ai": "^0.24.1",
+    "@portone/browser-sdk": "^0.1.2",
     "@prisma/client": "^5.14.0",
     "@supabase/supabase-js": "^2.87.1",
+    "@tosspayments/payment-sdk": "^1.9.2",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "framer-motion": "^12.23.26",
@@ -41,6 +43,3 @@
     "typescript": "^5.4.5"
   }
 }
-
-
-

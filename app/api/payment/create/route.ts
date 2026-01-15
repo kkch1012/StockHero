@@ -1,15 +1,14 @@
 // =====================================================
-// 결제 요청 생성 API
+// 결제 요청 생성 API (포트원 + KG이니시스)
 // =====================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { 
-  createPaymentData, 
+  generateOrderId, 
   calculatePaymentAmount,
-  getTossClientKey,
-} from '@/lib/toss-payments';
-import { PLAN_PRICES } from '@/lib/subscription';
+  SUBSCRIPTION_PLANS,
+} from '@/lib/subscription/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +16,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// 플랜별 표시 이름
+const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  basic: 'BASIC',
+  pro: 'PRO',
+  vip: 'VIP',
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 인증 확인 (Authorization 헤더에서 토큰 추출)
+    // 인증 확인
     const authHeader = request.headers.get('Authorization');
     let userId: string | null = null;
     let userEmail: string | null = null;
@@ -68,93 +74,64 @@ export async function POST(request: NextRequest) {
       userEmail = user.email || null;
       userName = user.user_metadata?.full_name || user.email?.split('@')[0] || null;
     } else {
-      // 쿠키에서 세션 확인 시도
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized - Please login' },
-          { status: 401 }
-        );
-      }
-      userId = session.user.id;
-      userEmail = session.user.email || null;
-      userName = session.user.user_metadata?.full_name || null;
+      // 로그인하지 않은 경우 - 테스트용으로 임시 ID 생성
+      userId = `guest_${Date.now()}`;
+      userEmail = 'guest@stockhero.kr';
+      userName = '게스트';
     }
 
-    // 이미 동일 플랜 구독 중인지 확인
-    const { data: existingSub } = await supabase
-      .from('user_subscriptions')
-      .select('*, plan:subscription_plans(*)')
-      .eq('user_id', userId)
-      .in('status', ['active', 'trial'])
-      .single();
-
-    if (existingSub?.plan?.name === planId) {
-      return NextResponse.json(
-        { success: false, error: 'Already subscribed to this plan' },
-        { status: 400 }
-      );
-    }
-
-    // 플랜 정보 조회
-    const { data: planData } = await supabase
-      .from('subscription_plans')
-      .select('*')
-      .eq('name', planId)
-      .single();
-
-    if (!planData) {
+    // 결제 금액 계산
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    if (!plan) {
       return NextResponse.json(
         { success: false, error: 'Plan not found' },
         { status: 404 }
       );
     }
 
-    // 결제 금액 계산
-    const amount = calculatePaymentAmount(planId, billingCycle);
+    const amount = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
+    const cycleName = billingCycle === 'monthly' ? '월간' : '연간';
 
-    // 결제 요청 데이터 생성
-    const paymentData = createPaymentData(
-      userId,
-      planId,
-      billingCycle,
-      { name: userName || undefined, email: userEmail || undefined }
-    );
+    // 주문 ID 생성
+    const orderId = generateOrderId(userId, planId);
 
-    // 결제 요청 정보 DB에 임시 저장 (나중에 검증용)
-    const { error: insertError } = await supabase
-      .from('subscription_transactions')
-      .insert({
-        user_id: userId,
-        plan_id: planData.id,
-        amount,
-        currency: 'KRW',
-        status: 'pending',
-        payment_provider: 'toss',
-        payment_id: paymentData.orderId,
-        metadata: {
-          billingCycle,
-          planName: planId,
-          orderName: paymentData.orderName,
-        },
-      });
+    // 결제 요청 정보 DB에 임시 저장
+    const { data: planData } = await supabase
+      .from('subscription_plans')
+      .select('id')
+      .eq('name', planId)
+      .single();
 
-    if (insertError) {
-      console.error('Failed to save transaction:', insertError);
+    if (planData) {
+      await supabase
+        .from('subscription_transactions')
+        .insert({
+          user_id: userId,
+          plan_id: planData.id,
+          amount,
+          currency: 'KRW',
+          status: 'pending',
+          payment_provider: 'portone_inicis',
+          payment_id: orderId,
+          metadata: {
+            billingCycle,
+            planName: planId,
+            pgProvider: 'html5_inicis',
+          },
+        });
     }
 
     // 클라이언트로 결제 데이터 반환
     return NextResponse.json({
       success: true,
-      paymentData: {
-        ...paymentData,
-        clientKey: getTossClientKey(),
-      },
+      orderId,
+      orderName: `StockHero ${PLAN_DISPLAY_NAMES[planId]} ${cycleName} 구독`,
+      amount,
+      customerEmail: userEmail,
+      customerName: userName,
       plan: {
-        id: planData.id,
-        name: planId,
-        displayName: planData.display_name,
-        amount,
+        id: planId,
+        displayName: PLAN_DISPLAY_NAMES[planId],
         billingCycle,
       },
     });

@@ -1,4 +1,4 @@
-// 포트원 (PortOne) 결제 연동
+// 포트원 (PortOne) + KG이니시스 결제 연동
 // V2 API 사용
 
 import { SubscriptionTier, SUBSCRIPTION_PLANS } from './config';
@@ -6,8 +6,10 @@ import { SubscriptionTier, SUBSCRIPTION_PLANS } from './config';
 // 포트원 설정
 const PORTONE_CONFIG = {
   storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID || '',
-  channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY || '',
+  channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY || '', // KG이니시스 채널
   apiSecret: process.env.PORTONE_API_SECRET || '',
+  pgProvider: 'html5_inicis', // KG이니시스
+  pgMid: process.env.PORTONE_PG_MID || '', // MOIplay998
 };
 
 // 결제 요청 타입

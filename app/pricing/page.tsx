@@ -10,7 +10,10 @@ import {
   PLAN_DISPLAY_NAMES,
   getYearlyDiscount,
   formatPrice,
+  generateOrderId,
+  createPaymentConfig,
 } from '@/lib/subscription';
+import * as PortOne from '@portone/browser-sdk/v2';
 
 // 플랜 테마 색상
 const PLAN_THEMES = {
@@ -127,11 +130,79 @@ export default function PricingPage() {
     return (features as any)[featureKey];
   };
 
-  const handleSelectPlan = (plan: string) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSelectPlan = async (plan: string) => {
     if (plan === 'free') {
       router.push('/');
-    } else {
-      router.push(`/subscription?plan=${plan}&cycle=${billingCycle}`);
+      return;
+    }
+    
+    if (isProcessing) return;
+    setIsProcessing(true);
+    
+    try {
+      // 1. 서버에서 결제 정보 생성
+      const res = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          planId: plan, 
+          billingCycle,
+        }),
+      });
+      
+      const paymentData = await res.json();
+      
+      if (!paymentData.success) {
+        throw new Error(paymentData.error || '결제 정보 생성 실패');
+      }
+      
+      // 2. 포트원 결제창 호출
+      const response = await PortOne.requestPayment({
+        storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID!,
+        channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!,
+        paymentId: paymentData.orderId,
+        orderName: paymentData.orderName,
+        totalAmount: paymentData.amount,
+        currency: 'CURRENCY_KRW',
+        payMethod: 'CARD',
+        customer: {
+          email: paymentData.customerEmail,
+          fullName: paymentData.customerName,
+        },
+      });
+      
+      if (response?.code) {
+        // 사용자 취소 또는 에러
+        console.error('Payment error:', response.message);
+        alert(response.message || '결제가 취소되었습니다.');
+        return;
+      }
+      
+      // 3. 결제 성공 - 서버에서 확인
+      const confirmRes = await fetch('/api/payment/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: response?.paymentId,
+          orderId: paymentData.orderId,
+        }),
+      });
+      
+      const confirmData = await confirmRes.json();
+      
+      if (confirmData.success) {
+        router.push('/subscription/success');
+      } else {
+        throw new Error(confirmData.error || '결제 확인 실패');
+      }
+      
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      alert(error.message || '결제 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
