@@ -6,9 +6,9 @@ import { usePathname } from 'next/navigation';
 import { UserMenu } from './UserMenu';
 
 const NAV_LINKS: { href: string; label: string; icon: string }[] = [
-  { href: '/', label: '오늘의 Top 5', icon: '🏆' },
-  { href: '/calendar', label: '추천 달력', icon: '📅' },
-  { href: '/portfolio', label: '포폴 분석', icon: '📊' },
+  { href: '/', label: 'Top 5', icon: '🏆' },
+  { href: '/calendar', label: '달력', icon: '📅' },
+  { href: '/backtest', label: '백테스트', icon: '📈' },
   { href: '/consult', label: 'AI 상담', icon: '💬' },
 ];
 
