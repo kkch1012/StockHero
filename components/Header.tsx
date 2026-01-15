@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserMenu } from './UserMenu';
+import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { CrownIcon, SparklesIcon, ZapIcon } from 'lucide-react';
 
 const NAV_LINKS: { href: string; label: string; icon: string }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
@@ -12,9 +14,21 @@ const NAV_LINKS: { href: string; label: string; icon: string }[] = [
   { href: '/consult', label: 'AI 상담', icon: '💬' },
 ];
 
+// 플랜별 배지 스타일
+const PLAN_BADGE_STYLES = {
+  free: { label: '무료', bg: 'bg-dark-700', text: 'text-dark-300', border: '' },
+  basic: { label: 'BASIC', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border border-blue-500/30' },
+  pro: { label: 'PRO', bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border border-purple-500/30' },
+  vip: { label: 'VIP', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border border-amber-500/30 ring-1 ring-amber-500/20' },
+};
+
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  
+  // 구독 정보
+  const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
+  const planBadge = PLAN_BADGE_STYLES[planName as keyof typeof PLAN_BADGE_STYLES] || PLAN_BADGE_STYLES.free;
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -52,7 +66,43 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
-              <div className="ml-4 pl-4 border-l border-dark-700">
+              
+              {/* VIP 메뉴 (VIP 회원만) */}
+              {isVip && (
+                <Link
+                  href="/vip"
+                  className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
+                    isActive('/vip')
+                      ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
+                      : 'text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10'
+                  }`}
+                >
+                  <CrownIcon className="w-4 h-4" />
+                  VIP
+                </Link>
+              )}
+              
+              <div className="ml-4 pl-4 border-l border-dark-700 flex items-center gap-3">
+                {/* 플랜 배지 */}
+                {!planLoading && (
+                  <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1`}>
+                    {isVip && <CrownIcon className="w-3 h-3" />}
+                    {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
+                    {planBadge.label}
+                  </div>
+                )}
+                
+                {/* 업그레이드 버튼 (무료 회원만) */}
+                {!planLoading && !isPremium && (
+                  <Link
+                    href="/pricing"
+                    className="px-3 py-1.5 bg-gradient-to-r from-brand-500 to-purple-500 text-white text-xs font-medium rounded-lg hover:from-brand-600 hover:to-purple-600 transition-all flex items-center gap-1 animate-pulse-slow"
+                  >
+                    <ZapIcon className="w-3 h-3" />
+                    업그레이드
+                  </Link>
+                )}
+                
                 <UserMenu />
               </div>
             </div>
@@ -97,7 +147,46 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
+                
+                {/* VIP 메뉴 (VIP 회원만) */}
+                {isVip && (
+                  <Link
+                    href="/vip"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all flex items-center gap-2 col-span-2 ${
+                      isActive('/vip')
+                        ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
+                        : 'text-amber-400/70 hover:text-amber-400 border border-amber-500/20'
+                    }`}
+                  >
+                    <CrownIcon className="w-5 h-5" />
+                    VIP 대시보드
+                  </Link>
+                )}
               </div>
+              
+              {/* 모바일 업그레이드 버튼 */}
+              {!planLoading && !isPremium && (
+                <Link
+                  href="/pricing"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="mt-3 w-full px-4 py-3 bg-gradient-to-r from-brand-500 to-purple-500 text-white text-sm font-medium rounded-xl flex items-center justify-center gap-2"
+                >
+                  <ZapIcon className="w-4 h-4" />
+                  PRO로 업그레이드
+                </Link>
+              )}
+              
+              {/* 모바일 플랜 배지 */}
+              {!planLoading && isPremium && (
+                <div className="mt-3 flex justify-center">
+                  <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1`}>
+                    {isVip && <CrownIcon className="w-3 h-3" />}
+                    {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
+                    현재 플랜: {planBadge.label}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </nav>

@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CharacterAvatar } from '@/components/CharacterAvatar';
 import { DisclaimerBar, Header } from '@/components';
+import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { LockedContent, BlurredRank, UpgradePrompt } from '@/components/subscription';
+import { LockIcon, CrownIcon } from 'lucide-react';
 
 // AI 의견 메시지 인터페이스
 interface AIOpinionMessage {
@@ -102,6 +105,16 @@ export default function HeroDetailPage() {
   const [stockOpinions, setStockOpinions] = useState<Record<string, StockOpinionState>>({});
   const [typingText, setTypingText] = useState<Record<string, string>>({});
   const opinionEndRef = useRef<HTMLDivElement>(null);
+  
+  // 구독 정보
+  const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
+  const { openUpgradeModal } = useSubscription();
+  
+  // 무료 회원은 1,2위 블러
+  const blurredRanks = isPremium ? [] : [1, 2];
+  // 베이직+는 목표가 표시, 프로+는 목표달성일 표시
+  const showTargetPrice = planName !== 'free';
+  const showTargetDate = planName === 'pro' || planName === 'vip';
   
   const meta = HERO_META[heroId as keyof typeof HERO_META];
 
@@ -356,12 +369,15 @@ export default function HeroDetailPage() {
         {/* Stock List */}
         {data && (
           <div className="space-y-4">
-            {data.stocks.map((stock, idx) => (
+            {data.stocks.map((stock, idx) => {
+              const isBlurred = blurredRanks.includes(stock.rank);
+              
+              return (
               <div
                 key={stock.symbol}
                 className={`glass ${meta.borderColor} border rounded-xl overflow-hidden transition-all ${
                   expandedStock === idx ? 'ring-2 ring-offset-2 ring-offset-dark-950' : ''
-                }`}
+                } ${isBlurred ? 'relative' : ''}`}
                 style={{
                   // @ts-ignore
                   '--tw-ring-color': meta.textColor.includes('blue') ? 'rgb(96 165 250)' : 
@@ -369,10 +385,27 @@ export default function HeroDetailPage() {
                                      'rgb(251 191 36)',
                 }}
               >
+                {/* 무료 회원 1,2위 블러 오버레이 */}
+                {isBlurred && (
+                  <div 
+                    className="absolute inset-0 z-10 backdrop-blur-md bg-dark-900/60 flex flex-col items-center justify-center cursor-pointer group"
+                    onClick={() => openUpgradeModal('top5_full', `${stock.rank}위 종목을 확인하려면 베이직 이상 플랜이 필요합니다`)}
+                  >
+                    <div className="p-3 bg-brand-500/20 rounded-full mb-3 group-hover:bg-brand-500/30 transition-colors">
+                      <LockIcon className="w-6 h-6 text-brand-400" />
+                    </div>
+                    <p className="text-dark-200 font-medium mb-1">{stock.rank}위 종목</p>
+                    <p className="text-xs text-dark-500 mb-3">베이직 회원부터 확인 가능</p>
+                    <span className="px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg group-hover:bg-brand-600 transition-colors">
+                      업그레이드
+                    </span>
+                  </div>
+                )}
+                
                 {/* Main Row */}
                 <button
-                  className="w-full p-4 sm:p-6 flex items-center gap-4 text-left hover:bg-dark-800/30 transition-colors"
-                  onClick={() => setExpandedStock(expandedStock === idx ? null : idx)}
+                  className={`w-full p-4 sm:p-6 flex items-center gap-4 text-left hover:bg-dark-800/30 transition-colors ${isBlurred ? 'pointer-events-none' : ''}`}
+                  onClick={() => !isBlurred && setExpandedStock(expandedStock === idx ? null : idx)}
                 >
                   {/* Rank */}
                   <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shrink-0`}>
@@ -382,42 +415,55 @@ export default function HeroDetailPage() {
                   {/* Stock Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg sm:text-xl font-bold text-white truncate">{stock.name}</h3>
-                      <span className="text-xs text-dark-500">{stock.symbol}</span>
+                      <h3 className="text-lg sm:text-xl font-bold text-white truncate">
+                        {isBlurred ? '████████' : stock.name}
+                      </h3>
+                      <span className="text-xs text-dark-500">{isBlurred ? '******' : stock.symbol}</span>
                     </div>
-                    <p className="text-sm text-dark-400 truncate">{stock.reason.substring(0, 50)}...</p>
+                    <p className="text-sm text-dark-400 truncate">
+                      {isBlurred ? '베이직 회원부터 확인 가능한 종목입니다' : `${stock.reason.substring(0, 50)}...`}
+                    </p>
                   </div>
                   
                   {/* Price & Score */}
                   <div className="text-right shrink-0 hidden sm:block">
                     <div className="flex items-center justify-end gap-2">
-                      <p className="text-lg font-bold text-white">{stock.currentPrice.toLocaleString()}원</p>
-                      {stock.change !== 0 && (
+                      <p className="text-lg font-bold text-white">
+                        {isBlurred ? '???원' : `${stock.currentPrice.toLocaleString()}원`}
+                      </p>
+                      {!isBlurred && stock.change !== 0 && (
                         <span className={`text-sm ${stock.change > 0 ? 'text-red-400' : 'text-blue-400'}`}>
                           {stock.change > 0 ? '▲' : '▼'} {Math.abs(stock.changePercent).toFixed(2)}%
                         </span>
                       )}
                     </div>
-                    {/* 목표가는 대화 완료 후 표시 */}
-                    {stockOpinions[stock.symbol]?.messages?.length >= 5 ? (
-                      <p className={`text-sm ${meta.textColor}`}>
-                        목표 {stock.targetPrice.toLocaleString()}원
-                        {stock.currentPrice > 0 && (
-                          <span className="text-green-400 ml-2">
-                            (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
-                          </span>
-                        )}
-                      </p>
+                    {/* 목표가 - 구독 플랜에 따라 표시 */}
+                    {showTargetPrice ? (
+                      stockOpinions[stock.symbol]?.messages?.length >= 5 ? (
+                        <p className={`text-sm ${meta.textColor}`}>
+                          목표 {stock.targetPrice.toLocaleString()}원
+                          {stock.currentPrice > 0 && (
+                            <span className="text-green-400 ml-2">
+                              (+{Math.round((stock.targetPrice - stock.currentPrice) / stock.currentPrice * 100)}%)
+                            </span>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-yellow-400/80 animate-pulse">
+                          🔒 5번 의견보기 후 목표가 공개
+                        </p>
+                      )
                     ) : (
-                      <p className="text-sm text-yellow-400/80 animate-pulse">
-                        🔒 5번 의견보기 후 목표가 공개
+                      <p className="text-sm text-dark-500 flex items-center gap-1 justify-end">
+                        <LockIcon className="w-3 h-3" />
+                        목표가 (베이직+)
                       </p>
                     )}
                   </div>
                   
                   {/* Score Badge */}
                   <div className={`${meta.bgColor} px-3 py-2 rounded-lg shrink-0`}>
-                    <p className={`text-xl font-bold ${meta.textColor}`}>{stock.score}</p>
+                    <p className={`text-xl font-bold ${meta.textColor}`}>{isBlurred ? '??' : stock.score}</p>
                     <p className="text-xs text-dark-400">점수</p>
                   </div>
                   
@@ -668,7 +714,23 @@ export default function HeroDetailPage() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
+          </div>
+        )}
+        
+        {/* 무료/베이직 회원 업그레이드 배너 */}
+        {!isPremium && (
+          <div className="mt-8">
+            <UpgradePrompt
+              type="banner"
+              feature="top5_full"
+              successStory={{
+                text: "PRO 회원들의 평균 수익",
+                value: "+15.2%",
+                emoji: "📈"
+              }}
+            />
           </div>
         )}
         

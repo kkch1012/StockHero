@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DisclaimerBar, Header, CharacterAvatar, StockSearchModal } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
+import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { UpgradePrompt } from '@/components/subscription';
+import { ClockIcon, LockIcon } from 'lucide-react';
 
 // 인기 종목 리스트
 const POPULAR_STOCKS = [
@@ -31,6 +34,13 @@ export default function BattleLandingPage() {
   const router = useRouter();
   const [isStockSearchOpen, setIsStockSearchOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'kr' | 'us'>('kr');
+  
+  // 구독 정보
+  const { planName, isPremium, isLoading: planLoading } = useCurrentPlan();
+  const { openUpgradeModal } = useSubscription();
+  
+  // 무료 회원은 1일 지연
+  const isDelayed = planName === 'free';
 
   const handleStockSelect = (stock: { symbol: string; name: string; sector: string }) => {
     router.push(`/battle/${stock.symbol}`);
@@ -63,6 +73,20 @@ export default function BattleLandingPage() {
               AI 3대장이 당신이 선택한 종목에 대해 치열한 토론을 벌입니다.
               <br />각자의 관점에서 분석하고, 목표가를 제시합니다.
             </p>
+            
+            {/* 무료 회원 지연 안내 */}
+            {isDelayed && !planLoading && (
+              <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full">
+                <ClockIcon className="w-4 h-4 text-amber-400" />
+                <span className="text-sm text-amber-300">무료 회원은 1일 지연된 토론 결과를 봅니다</span>
+                <button
+                  onClick={() => openUpgradeModal('realtime_debate', '실시간 토론을 보려면 베이직 이상 플랜이 필요합니다')}
+                  className="text-sm text-amber-400 hover:text-amber-300 font-medium underline"
+                >
+                  실시간 보기
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Stock Selection */}
@@ -184,6 +208,21 @@ export default function BattleLandingPage() {
               })}
             </div>
           </div>
+          
+          {/* 무료/베이직 회원 업그레이드 배너 */}
+          {!isPremium && !planLoading && (
+            <div className="mt-8">
+              <UpgradePrompt
+                type="banner"
+                feature="realtime_debate"
+                successStory={{
+                  text: "실시간 알림 덕분에 평균 2일 빠른 매수",
+                  value: "PRO 회원",
+                  emoji: "⚡"
+                }}
+              />
+            </div>
+          )}
         </div>
       </main>
 

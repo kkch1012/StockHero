@@ -123,12 +123,15 @@ export type FeatureType =
   | 'reports'
   | 'portfolio_analyses'
   | 'backtest'
+  | 'backtest_full'      // 전체 기간 백테스트
   | 'realtime_alerts'
+  | 'realtime_debate'    // 실시간 토론
   | 'vip_stocks'
   | 'realtime_signal'
   | 'target_price'
   | 'target_date'
-  | 'full_top5';
+  | 'full_top5'
+  | 'top5_full';         // 전체 Top 5
 
 /**
  * 결제 트랜잭션

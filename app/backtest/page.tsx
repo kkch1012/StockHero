@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Header } from '@/components';
+import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { UpgradePrompt } from '@/components/subscription';
+import { LockIcon, AlertTriangleIcon } from 'lucide-react';
 
 interface BacktestResult {
   symbol: string;
@@ -32,12 +35,39 @@ interface BacktestSummary {
   };
 }
 
+// 플랜별 백테스트 기간 제한 (일)
+const BACKTEST_LIMITS: Record<string, number> = {
+  free: 7,
+  basic: 30,
+  pro: 365,
+  vip: 9999, // 무제한
+};
+
 export default function BacktestPage() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<BacktestSummary | null>(null);
   const [results, setResults] = useState<BacktestResult[]>([]);
   const [startDate, setStartDate] = useState('2025-09-01');
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // 구독 정보
+  const { planName, isPremium, isLoading: planLoading } = useCurrentPlan();
+  const { openUpgradeModal } = useSubscription();
+  
+  // 플랜별 날짜 제한
+  const maxDays = BACKTEST_LIMITS[planName] || 7;
+  const minAllowedDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - maxDays);
+    return date.toISOString().split('T')[0];
+  }, [maxDays]);
+  
+  // 날짜가 제한을 초과하는지 확인
+  const isDateRestricted = useMemo(() => {
+    const start = new Date(startDate);
+    const min = new Date(minAllowedDate);
+    return start < min;
+  }, [startDate, minAllowedDate]);
 
   const fetchBacktest = async () => {
     setLoading(true);
@@ -108,12 +138,30 @@ export default function BacktestPage() {
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-dark-400">시작일</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-dark-800 border border-dark-700 rounded-lg px-3 py-2 text-sm text-dark-100"
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={startDate}
+                      min={minAllowedDate}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        if (new Date(newDate) < new Date(minAllowedDate)) {
+                          openUpgradeModal('backtest_full', `전체 기간 백테스트는 PRO 이상 플랜에서 가능합니다`);
+                          return;
+                        }
+                        setStartDate(newDate);
+                      }}
+                      className={`bg-dark-800 border rounded-lg px-3 py-2 text-sm text-dark-100 ${
+                        isDateRestricted ? 'border-amber-500/50' : 'border-dark-700'
+                      }`}
+                    />
+                    {isDateRestricted && (
+                      <div className="absolute -bottom-6 left-0 text-xs text-amber-400 flex items-center gap-1">
+                        <LockIcon className="w-3 h-3" />
+                        {planName === 'free' ? '7일' : '30일'}까지만
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-dark-400">종료일</label>
@@ -126,12 +174,27 @@ export default function BacktestPage() {
                 </div>
                 <button
                   onClick={fetchBacktest}
-                  disabled={loading}
+                  disabled={loading || isDateRestricted}
                   className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
                 >
                   {loading ? '분석 중...' : '백테스트 실행'}
                 </button>
               </div>
+              
+              {/* 플랜별 기간 안내 */}
+              {!planLoading && planName !== 'vip' && (
+                <div className="mt-3 pt-3 border-t border-dark-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-dark-500">
+                    <span>현재 플랜: {planName === 'free' ? '무료 (7일)' : planName === 'basic' ? '베이직 (30일)' : 'PRO (1년)'}</span>
+                  </div>
+                  <button
+                    onClick={() => openUpgradeModal('backtest_full', '전체 기간 백테스트로 더 정확한 분석을 하세요')}
+                    className="text-xs text-brand-400 hover:text-brand-300"
+                  >
+                    전체 기간 보기 →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -321,6 +384,21 @@ export default function BacktestPage() {
                   </p>
                 </div>
               </div>
+              
+              {/* 무료/베이직 회원 업그레이드 배너 */}
+              {!isPremium && !planLoading && (
+                <div className="max-w-4xl mx-auto mt-8">
+                  <UpgradePrompt
+                    type="banner"
+                    feature="backtest_full"
+                    successStory={{
+                      text: "전체 기간 분석으로 더 정확한 예측",
+                      value: "+23%",
+                      emoji: "📊"
+                    }}
+                  />
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-20">

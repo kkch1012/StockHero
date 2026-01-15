@@ -4,6 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Header } from '@/components';
 import { CHARACTERS } from '@/lib/characters';
 import { KRX_ALL_STOCKS, searchStocksByName, type KRXStock } from '@/lib/data/krx-stocks';
+import { useCurrentPlan, useUsageLimit, useSubscription } from '@/lib/subscription/hooks';
+import { UsageLimitWarning, UpgradePrompt } from '@/components/subscription';
+import { LockIcon, AlertCircleIcon } from 'lucide-react';
 
 type CharacterType = 'claude' | 'gemini' | 'gpt';
 
@@ -11,6 +14,14 @@ const AI_EMOJIS: Record<CharacterType, string> = {
   claude: '🔵',
   gemini: '🟣',
   gpt: '🟡',
+};
+
+// 플랜별 응답 길이 제한
+const RESPONSE_LIMITS: Record<string, number> = {
+  free: 500,
+  basic: 1000,
+  pro: 2000,
+  vip: 5000,
 };
 
 interface Message {
@@ -30,6 +41,15 @@ export default function ConsultPage() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  
+  // 구독 정보
+  const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
+  const { limit: consultationLimit, increment: useConsultation, openUpgrade } = useUsageLimit('ai_consultations');
+  const { openUpgradeModal } = useSubscription();
+  
+  // 상담 제한 여부
+  const isLimitReached = !consultationLimit.allowed;
+  const responseLimit = RESPONSE_LIMITS[planName] || 500;
 
   const char = CHARACTERS[selectedAI];
 
@@ -101,6 +121,12 @@ export default function ConsultPage() {
 
   const sendMessage = async () => {
     if (!input.trim() || loading || !selectedStock) return;
+    
+    // 사용량 체크
+    if (isLimitReached) {
+      openUpgrade();
+      return;
+    }
 
     const userMessage = input.trim();
     setInput('');
@@ -108,6 +134,13 @@ export default function ConsultPage() {
     setLoading(true);
 
     try {
+      // 사용량 증가
+      const canProceed = await useConsultation();
+      if (!canProceed) {
+        setLoading(false);
+        return;
+      }
+      
       const res = await fetch('/api/consultation/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,6 +149,7 @@ export default function ConsultPage() {
           stock: { symbol: selectedStock.symbol, name: selectedStock.name },
           messages: [...messages, { role: 'user', content: userMessage }],
           isInitial: false,
+          maxLength: responseLimit,
         }),
       });
 
@@ -314,29 +348,64 @@ export default function ConsultPage() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* 사용량 경고 */}
+                {!planLoading && (
+                  <div className="px-4 pt-2">
+                    <UsageLimitWarning
+                      feature="ai_consultations"
+                      variant="compact"
+                    />
+                  </div>
+                )}
+                
                 {/* Input */}
                 <div className="p-4 border-t border-dark-800">
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                      placeholder="질문을 입력하세요..."
-                      className="flex-1 px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-dark-100 focus:outline-none focus:border-brand-500"
-                    />
-                    <button
-                      onClick={sendMessage}
-                      disabled={loading || !input.trim()}
-                      className="px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      전송
-                    </button>
-                  </div>
+                  {isLimitReached ? (
+                    <div className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <AlertCircleIcon className="w-5 h-5 text-red-400" />
+                        <span className="text-red-300 text-sm">오늘 상담 횟수를 모두 사용했습니다</span>
+                      </div>
+                      <button
+                        onClick={openUpgrade}
+                        className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm rounded-lg"
+                      >
+                        업그레이드
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        placeholder="질문을 입력하세요..."
+                        className="flex-1 px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-dark-100 focus:outline-none focus:border-brand-500"
+                      />
+                      <button
+                        onClick={sendMessage}
+                        disabled={loading || !input.trim()}
+                        className="px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        전송
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
+          
+          {/* 무료/베이직 회원 업그레이드 배너 */}
+          {!isPremium && !planLoading && (
+            <div className="max-w-3xl mx-auto mt-8">
+              <UpgradePrompt
+                type="inline"
+                feature="ai_consultations"
+              />
+            </div>
+          )}
         </div>
       </main>
     </>
