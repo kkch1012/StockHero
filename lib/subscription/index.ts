@@ -1,54 +1,50 @@
-// 구독 시스템 모듈 내보내기
+// =====================================================
+// StockHero 구독 시스템 - 메인 Export
+// =====================================================
 
-// 설정 및 타입
+// 타입
+export type {
+  PlanFeatures,
+  SubscriptionPlan,
+  SubscriptionStatus,
+  PaymentProvider,
+  UserSubscription,
+  SubscriptionUsage,
+  UsageLimitResult,
+  FeatureType,
+  SubscriptionTransaction,
+  UpgradeModalState,
+  SubscriptionContextValue,
+  PlanComparison,
+} from '@/types/subscription';
+
+// 유틸리티
 export {
-  SUBSCRIPTION_PLANS,
-  FEATURE_LIMITS,
-  getPlanById,
-  canAccessFeature,
-  getFeatureLimit,
+  getPlanFeatures,
+  checkFeatureAccess,
+  getRemainingUsage,
+  checkUsageLimitByPlan,
+  isPlanHigherThan,
+  getRequiredPlanForFeature,
   formatPrice,
-  type SubscriptionTier,
-  type SubscriptionPlan,
-  type PlanFeature,
-} from './config';
+  getYearlyDiscount,
+  getUpgradeMessage,
+  getRecommendedPlan,
+  PLAN_FEATURES,
+  PLAN_PRICES,
+  PLAN_DISPLAY_NAMES,
+  PLAN_ORDER,
+  FEATURE_ICONS,
+  FEATURE_NAMES,
+} from './utils';
 
-// 포트원 결제
+// React 훅
 export {
-  calculatePaymentAmount,
-  generateOrderId,
-  getPaymentStatus,
-  executePaymentWithBillingKey,
-  cancelPayment,
-  schedulePayment,
-  cancelScheduledPayment,
-  createPaymentConfig,
-  createBillingKeyConfig,
-} from './portone';
-
-// 서비스 함수
-export {
-  getUserSubscription,
-  getUserTier,
-  createOrUpdateSubscription,
-  cancelSubscription,
-  recordPayment,
-  checkFeatureUsage,
-  incrementFeatureUsage,
-  validateCoupon,
-  redeemCoupon,
-  syncSubscriptionStatus,
-} from './service';
-
-// React Hooks (클라이언트용)
-export {
+  SubscriptionProvider,
   useSubscription,
-  useFeatureUsage,
-  useAllFeatureUsage,
+  useCanAccess,
+  useUsageLimit,
+  useUpgradeModal,
+  useCurrentPlan,
+  usePlans,
 } from './hooks';
-
-
-
-
-
-
