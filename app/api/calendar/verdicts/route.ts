@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchMultipleStockPrices } from '@/lib/market-data/kis';
 
 // Disable caching for this API route
 export const dynamic = 'force-dynamic';
@@ -82,25 +81,14 @@ const STOCK_NAMES: Record<string, { name: string; sector: string }> = {
   '395400': { name: '맥쿼리인프라', sector: '인프라' },
 };
 
-// Convert DB format to Calendar format with real-time prices
-async function convertDBVerdictToCalendarFormat(dbVerdict: any): Promise<any> {
+// Convert DB format to Calendar format (NO real-time price fetch for speed)
+function convertDBVerdictToCalendarFormat(dbVerdict: any): any {
   const top5Items = dbVerdict.top5 || [];
-  
-  // 실시간 가격 조회
-  const symbols = top5Items.map((item: any) => item.symbol);
-  let realPrices = new Map<string, any>();
-  
-  try {
-    realPrices = await fetchMultipleStockPrices(symbols);
-  } catch (error) {
-    console.error('Failed to fetch real-time prices for calendar:', error);
-  }
   
   return {
     date: dbVerdict.date,
     top5: top5Items.map((item: any, idx: number) => {
       const stockInfo = STOCK_NAMES[item.symbol];
-      const realPrice = realPrices.get(item.symbol);
       
       return {
         rank: item.rank || idx + 1,
@@ -111,11 +99,13 @@ async function convertDBVerdictToCalendarFormat(dbVerdict: any): Promise<any> {
         claudeScore: item.claudeScore || 0,
         geminiScore: item.geminiScore || 0,
         gptScore: item.gptScore || 0,
-        currentPrice: realPrice?.price || item.currentPrice || 0,
-        change: realPrice?.change || 0,
-        changePercent: realPrice?.changePercent || 0,
+        currentPrice: item.currentPrice || 0,
+        change: item.change || 0,
+        changePercent: item.changePercent || 0,
         targetPrice: item.targetPrice || 0,
         targetDate: item.targetDate || '',
+        // 추천일 가격 정보 (백테스트용)
+        firstRecommendPrice: item.firstRecommendPrice || item.currentPrice || 0,
       };
     }),
     isGenerated: true,
@@ -155,14 +145,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // DB 데이터만 사용 (더미 데이터 없음)
-    const verdicts = [];
-    
-    for (const dbVerdict of (dbVerdicts || [])) {
-      // 실시간 가격 포함하여 변환
-      const formatted = await convertDBVerdictToCalendarFormat(dbVerdict);
-      verdicts.push(formatted);
-    }
+    // DB 데이터만 사용 (더미 데이터 없음) - 동기 처리로 빠름
+    const verdicts = (dbVerdicts || []).map(dbVerdict => 
+      convertDBVerdictToCalendarFormat(dbVerdict)
+    );
 
     // 요일별 테마 정보
     const DAY_THEMES: Record<number, { name: string; emoji: string }> = {
