@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from '@/components';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useCurrentPlan } from '@/lib/subscription';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   CrownIcon, 
@@ -18,6 +18,7 @@ import {
   RefreshCwIcon,
   ClockIcon,
   SearchIcon,
+  BarChart3Icon,
 } from 'lucide-react';
 import { SignalFeed } from '@/components/vip/SignalFeed';
 import { ExclusiveStockCard } from '@/components/vip/ExclusiveStockCard';
@@ -57,25 +58,70 @@ interface PerformanceStats {
   worstPerformer: any;
 }
 
+// 백테스트 관련 인터페이스
+interface BacktestResult {
+  symbol: string;
+  name: string;
+  firstRecommendDate: string;
+  firstRecommendPrice: number;
+  currentPrice: number;
+  returnPercent: number;
+  totalRecommendations: number;
+  avgRank: number;
+  unanimousCount: number;
+}
+
+interface BacktestSummary {
+  period: { start: string; end: string };
+  totalDays: number;
+  totalStocks: number;
+  avgReturn: number;
+  positiveCount: number;
+  negativeCount: number;
+  winRate: number;
+  bestReturn: { symbol: string; name: string; returnPercent: number } | null;
+  worstReturn: { symbol: string; name: string; returnPercent: number } | null;
+  strategies: {
+    allStocks: { avgReturn: number; stockCount: number };
+    unanimousOnly: { avgReturn: number; stockCount: number };
+    top1Only: { avgReturn: number; stockCount: number };
+  };
+}
+
 export default function VIPPage() {
   const { user, loading: authLoading } = useAuth();
   const { plan: currentPlan, planName, isVip, isLoading: planLoading } = useCurrentPlan();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [vipStocks, setVipStocks] = useState<VIPStock[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [performance, setPerformance] = useState<PerformanceStats | null>(null);
   const [weekStart, setWeekStart] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'stocks' | 'signals' | 'debate'>('stocks');
+  
+  // URL 파라미터에서 초기 탭 결정
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab = tabFromUrl && ['stocks', 'signals', 'debate', 'backtest'].includes(tabFromUrl) 
+    ? tabFromUrl as 'stocks' | 'signals' | 'debate' | 'backtest'
+    : 'stocks';
+  const [activeTab, setActiveTab] = useState<'stocks' | 'signals' | 'debate' | 'backtest'>(initialTab);
   
   // 커스텀 토론
   const [debateSymbol, setDebateSymbol] = useState('');
   const [debateQuestion, setDebateQuestion] = useState('');
   const [debateLoading, setDebateLoading] = useState(false);
   const [debateResult, setDebateResult] = useState<any>(null);
+  
+  // 백테스트
+  const [backtestLoading, setBacktestLoading] = useState(false);
+  const [backtestSummary, setBacktestSummary] = useState<BacktestSummary | null>(null);
+  const [backtestResults, setBacktestResults] = useState<BacktestResult[]>([]);
+  const [startDate, setStartDate] = useState('2025-09-01');
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const isVIP = !planLoading && currentPlan?.name === 'vip';
+  // isVip은 useCurrentPlan에서 이미 계산됨 (무료 모드에서는 true)
+  const isVIP = !planLoading && isVip;
   const isLoading = authLoading || planLoading;
 
   // VIP 종목 로드
@@ -109,6 +155,44 @@ export default function VIPPage() {
       console.error('Failed to fetch signals:', error);
     }
   };
+
+  // 백테스트 로드
+  const fetchBacktest = async () => {
+    setBacktestLoading(true);
+    try {
+      const res = await fetch(`/api/backtest?startDate=${startDate}&endDate=${endDate}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setBacktestSummary(data.summary);
+        setBacktestResults(data.results || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch backtest:', error);
+    } finally {
+      setBacktestLoading(false);
+    }
+  };
+
+  // 수익률 색상
+  const getReturnColor = (returnPct: number) => {
+    if (returnPct > 10) return 'text-red-400';
+    if (returnPct > 0) return 'text-red-300';
+    if (returnPct < -10) return 'text-blue-400';
+    if (returnPct < 0) return 'text-blue-300';
+    return 'text-dark-400';
+  };
+
+  const getReturnBg = (returnPct: number) => {
+    if (returnPct > 20) return 'bg-red-500/20';
+    if (returnPct > 10) return 'bg-red-500/10';
+    if (returnPct < -20) return 'bg-blue-500/20';
+    if (returnPct < -10) return 'bg-blue-500/10';
+    return '';
+  };
+
+  const getReturnSign = (returnPct: number) => returnPct > 0 ? '+' : '';
+  const formatPrice = (price: number) => price.toLocaleString('ko-KR');
 
   // 커스텀 토론 시작
   const startCustomDebate = async () => {
@@ -230,6 +314,7 @@ export default function VIPPage() {
             {[
               { id: 'stocks', label: 'VIP 종목', icon: SparklesIcon },
               { id: 'signals', label: '실시간 시그널', icon: TrendingUpIcon },
+              { id: 'backtest', label: '백테스트', icon: BarChart3Icon },
               { id: 'debate', label: '커스텀 토론', icon: MessageSquareIcon },
             ].map((tab) => (
               <button
@@ -318,6 +403,223 @@ export default function VIPPage() {
           {/* 실시간 시그널 탭 */}
           {activeTab === 'signals' && (
             <SignalFeed signals={signals} onRefresh={fetchSignals} />
+          )}
+
+          {/* 백테스트 탭 */}
+          {activeTab === 'backtest' && (
+            <div className="space-y-6">
+              {/* 기간 선택 */}
+              <div className="bg-dark-800/50 rounded-xl p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-dark-400">시작일</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-dark-100"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-dark-400">종료일</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-dark-100"
+                    />
+                  </div>
+                  <button
+                    onClick={fetchBacktest}
+                    disabled={backtestLoading}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-lg text-sm font-medium text-black transition-colors"
+                  >
+                    {backtestLoading ? '분석 중...' : '백테스트 실행'}
+                  </button>
+                </div>
+                <p className="text-xs text-amber-400/70 mt-2">
+                  💎 VIP 전용: 무제한 기간 백테스트 가능
+                </p>
+              </div>
+
+              {backtestLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center">
+                    <div className="w-10 h-10 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-dark-400">백테스트 분석 중...</p>
+                  </div>
+                </div>
+              ) : backtestSummary ? (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-dark-800/50 rounded-xl p-4 text-center">
+                      <p className="text-3xl font-bold text-amber-400">{backtestSummary.totalDays}일</p>
+                      <p className="text-xs text-dark-500 mt-1">분석 기간</p>
+                    </div>
+                    <div className="bg-dark-800/50 rounded-xl p-4 text-center">
+                      <p className="text-3xl font-bold text-purple-400">{backtestSummary.totalStocks}개</p>
+                      <p className="text-xs text-dark-500 mt-1">추천 종목</p>
+                    </div>
+                    <div className="bg-dark-800/50 rounded-xl p-4 text-center">
+                      <p className={`text-3xl font-bold ${getReturnColor(backtestSummary.avgReturn)}`}>
+                        {getReturnSign(backtestSummary.avgReturn)}{backtestSummary.avgReturn.toFixed(1)}%
+                      </p>
+                      <p className="text-xs text-dark-500 mt-1">평균 수익률</p>
+                    </div>
+                    <div className="bg-dark-800/50 rounded-xl p-4 text-center">
+                      <p className={`text-3xl font-bold ${backtestSummary.winRate >= 50 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                        {backtestSummary.winRate}%
+                      </p>
+                      <p className="text-xs text-dark-500 mt-1">승률</p>
+                    </div>
+                  </div>
+
+                  {/* Strategy Comparison */}
+                  <div>
+                    <h3 className="text-lg font-bold text-dark-100 mb-4">📊 전략별 수익률 비교</h3>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="bg-dark-800/50 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">📈</span>
+                          <h4 className="font-medium text-dark-200">전체 추천 종목</h4>
+                        </div>
+                        <p className={`text-3xl font-bold ${getReturnColor(backtestSummary.strategies.allStocks.avgReturn)}`}>
+                          {getReturnSign(backtestSummary.strategies.allStocks.avgReturn)}
+                          {backtestSummary.strategies.allStocks.avgReturn.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-dark-500 mt-2">
+                          {backtestSummary.strategies.allStocks.stockCount}개 종목 평균
+                        </p>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">🏆</span>
+                          <h4 className="font-medium text-amber-200">만장일치 종목만</h4>
+                        </div>
+                        <p className={`text-3xl font-bold ${getReturnColor(backtestSummary.strategies.unanimousOnly.avgReturn)}`}>
+                          {getReturnSign(backtestSummary.strategies.unanimousOnly.avgReturn)}
+                          {backtestSummary.strategies.unanimousOnly.avgReturn.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-dark-500 mt-2">
+                          {backtestSummary.strategies.unanimousOnly.stockCount}개 종목 평균
+                        </p>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">🥇</span>
+                          <h4 className="font-medium text-emerald-200">1위 종목만</h4>
+                        </div>
+                        <p className={`text-3xl font-bold ${getReturnColor(backtestSummary.strategies.top1Only.avgReturn)}`}>
+                          {getReturnSign(backtestSummary.strategies.top1Only.avgReturn)}
+                          {backtestSummary.strategies.top1Only.avgReturn.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-dark-500 mt-2">
+                          {backtestSummary.strategies.top1Only.stockCount}개 종목 평균
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Best & Worst */}
+                  {(backtestSummary.bestReturn || backtestSummary.worstReturn) && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {backtestSummary.bestReturn && (
+                        <div className="bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20 rounded-xl p-5">
+                          <p className="text-sm text-dark-400 mb-2">🚀 최고 수익률</p>
+                          <p className="text-xl font-bold text-dark-100">{backtestSummary.bestReturn.name}</p>
+                          <p className={`text-3xl font-bold ${getReturnColor(backtestSummary.bestReturn.returnPercent)}`}>
+                            +{backtestSummary.bestReturn.returnPercent.toFixed(1)}%
+                          </p>
+                        </div>
+                      )}
+                      {backtestSummary.worstReturn && (
+                        <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-5">
+                          <p className="text-sm text-dark-400 mb-2">📉 최저 수익률</p>
+                          <p className="text-xl font-bold text-dark-100">{backtestSummary.worstReturn.name}</p>
+                          <p className={`text-3xl font-bold ${getReturnColor(backtestSummary.worstReturn.returnPercent)}`}>
+                            {backtestSummary.worstReturn.returnPercent.toFixed(1)}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Results Table */}
+                  <div>
+                    <h3 className="text-lg font-bold text-dark-100 mb-4">📋 종목별 수익률</h3>
+                    <div className="bg-dark-800/50 rounded-xl overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-dark-700">
+                              <th className="px-4 py-3 text-left text-xs font-medium text-dark-500 uppercase">종목</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">첫 추천일</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">최초 추천가</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">현재가</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">수익률</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-dark-500 uppercase">추천횟수</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-dark-700">
+                            {backtestResults.map((result, idx) => (
+                              <tr key={result.symbol} className={`${getReturnBg(result.returnPercent)} hover:bg-dark-700/50 transition-colors`}>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-dark-500">{idx + 1}</span>
+                                    <div>
+                                      <p className="font-medium text-dark-100">{result.name}</p>
+                                      <p className="text-xs text-dark-500">{result.symbol}</p>
+                                    </div>
+                                    {result.unanimousCount > 0 && (
+                                      <span className="px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-400 rounded">
+                                        🏆 {result.unanimousCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm text-dark-400">
+                                  {result.firstRecommendDate}
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm text-dark-400">
+                                  {formatPrice(result.firstRecommendPrice)}원
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm text-dark-200">
+                                  {formatPrice(result.currentPrice)}원
+                                </td>
+                                <td className={`px-4 py-3 text-right text-sm font-bold ${getReturnColor(result.returnPercent)}`}>
+                                  {getReturnSign(result.returnPercent)}{result.returnPercent.toFixed(1)}%
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm text-dark-400">
+                                  {result.totalRecommendations}회
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div className="bg-dark-800/30 border border-dark-700 rounded-xl p-4">
+                    <p className="text-xs text-dark-500 leading-relaxed">
+                      ⚠️ <strong>투자 유의사항:</strong> 이 백테스트 결과는 과거 데이터를 기반으로 한 시뮬레이션이며, 
+                      미래 수익을 보장하지 않습니다. 실제 투자 시에는 매매 수수료, 세금, 슬리피지 등이 발생하여 
+                      결과가 달라질 수 있습니다.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-20">
+                  <BarChart3Icon className="w-16 h-16 text-dark-600 mx-auto mb-4" />
+                  <p className="text-dark-400 mb-2">백테스트를 실행해보세요</p>
+                  <p className="text-sm text-dark-600">기간을 선택하고 분석 버튼을 클릭하세요</p>
+                </div>
+              )}
+            </div>
           )}
 
           {/* 커스텀 토론 탭 */}
