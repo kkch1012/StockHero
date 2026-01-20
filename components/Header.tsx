@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserMenu } from './UserMenu';
 import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
-import { CrownIcon, SparklesIcon, ZapIcon } from 'lucide-react';
+import { CrownIcon, SparklesIcon, ZapIcon, Menu, X } from 'lucide-react';
 
 const NAV_LINKS: { href: string; label: string; icon: string }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
@@ -38,32 +38,32 @@ export function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
       <div className="container-app py-3">
-        <nav className="glass rounded-2xl px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
+        <nav className="glass rounded-2xl px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3">
+          <div className="flex items-center justify-between gap-2">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
-                <span className="text-white font-bold text-base">S</span>
+            <Link href="/" className="flex items-center gap-2 group shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                <span className="text-white font-bold text-sm sm:text-base">S</span>
               </div>
-              <span className="font-bold text-dark-50 group-hover:text-white transition-colors text-lg hidden sm:block">
+              <span className="font-bold text-dark-50 group-hover:text-white transition-colors text-base sm:text-lg hidden sm:block whitespace-nowrap">
                 StockHero
               </span>
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-1 xl:gap-2">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
+                  className={`px-3 xl:px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
                     isActive(link.href)
                       ? 'text-white bg-brand-500/20 border border-brand-500/30'
                       : 'text-dark-300 hover:text-white hover:bg-dark-800/60'
                   }`}
                 >
-                  <span>{link.icon}</span>
-                  {link.label}
+                  <span className="text-base">{link.icon}</span>
+                  <span>{link.label}</span>
                 </Link>
               ))}
               
@@ -71,58 +71,43 @@ export function Header() {
               {isVip && (
                 <Link
                   href="/vip"
-                  className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
+                  className={`px-3 xl:px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
                     isActive('/vip')
                       ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
                       : 'text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10'
                   }`}
                 >
                   <CrownIcon className="w-4 h-4" />
-                  VIP
+                  <span>VIP</span>
                 </Link>
               )}
               
-              <div className="ml-4 pl-4 border-l border-dark-700 flex items-center gap-3">
+              <div className="ml-2 xl:ml-4 pl-2 xl:pl-4 border-l border-dark-700 flex items-center gap-2 xl:gap-3">
                 {/* 플랜 배지 */}
                 {!planLoading && (
-                  <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1`}>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
                     {isVip && <CrownIcon className="w-3 h-3" />}
                     {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
                     {planBadge.label}
                   </div>
                 )}
                 
-                {/* 업그레이드 버튼 (무료 회원만) */}
-                {!planLoading && !isPremium && (
-                  <Link
-                    href="/pricing"
-                    className="px-3 py-1.5 bg-gradient-to-r from-brand-500 to-purple-500 text-white text-xs font-medium rounded-lg hover:from-brand-600 hover:to-purple-600 transition-all flex items-center gap-1 animate-pulse-slow"
-                  >
-                    <ZapIcon className="w-3 h-3" />
-                    업그레이드
-                  </Link>
-                )}
-                
                 <UserMenu />
               </div>
             </div>
 
-            {/* Mobile Menu Button & User Menu */}
-            <div className="flex md:hidden items-center gap-2">
+            {/* Mobile/Tablet Menu Button & User Menu */}
+            <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
               <UserMenu />
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2.5 text-dark-300 hover:text-white hover:bg-dark-800/60 rounded-xl transition-all"
+                className="p-2 text-dark-300 hover:text-white hover:bg-dark-800/60 rounded-xl transition-all"
                 aria-label="메뉴 열기"
               >
                 {isMobileMenuOpen ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-5 h-5" />
                 ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
+                  <Menu className="w-5 h-5" />
                 )}
               </button>
             </div>
@@ -130,21 +115,21 @@ export function Header() {
 
           {/* Mobile Navigation */}
           {isMobileMenuOpen && (
-            <div className="md:hidden mt-4 pt-4 border-t border-dark-700/50">
+            <div className="lg:hidden mt-3 pt-3 border-t border-dark-700/50">
               <div className="grid grid-cols-2 gap-2">
                 {NAV_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
+                    className={`px-3 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${
                       isActive(link.href)
                         ? 'text-white bg-brand-500/20 border border-brand-500/30'
                         : 'text-dark-300 hover:text-white hover:bg-dark-800/60 border border-dark-800/50'
                     }`}
                   >
-                    <span className="text-lg">{link.icon}</span>
-                    {link.label}
+                    <span className="text-base">{link.icon}</span>
+                    <span>{link.label}</span>
                   </Link>
                 ))}
                 
@@ -153,37 +138,25 @@ export function Header() {
                   <Link
                     href="/vip"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all flex items-center gap-2 col-span-2 ${
+                    className={`px-3 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 col-span-2 whitespace-nowrap ${
                       isActive('/vip')
                         ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
                         : 'text-amber-400/70 hover:text-amber-400 border border-amber-500/20'
                     }`}
                   >
-                    <CrownIcon className="w-5 h-5" />
-                    VIP 대시보드
+                    <CrownIcon className="w-4 h-4" />
+                    <span>VIP 대시보드</span>
                   </Link>
                 )}
               </div>
               
-              {/* 모바일 업그레이드 버튼 */}
-              {!planLoading && !isPremium && (
-                <Link
-                  href="/pricing"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="mt-3 w-full px-4 py-3 bg-gradient-to-r from-brand-500 to-purple-500 text-white text-sm font-medium rounded-xl flex items-center justify-center gap-2"
-                >
-                  <ZapIcon className="w-4 h-4" />
-                  PRO로 업그레이드
-                </Link>
-              )}
-              
               {/* 모바일 플랜 배지 */}
-              {!planLoading && isPremium && (
+              {!planLoading && (
                 <div className="mt-3 flex justify-center">
-                  <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1`}>
+                  <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
                     {isVip && <CrownIcon className="w-3 h-3" />}
                     {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
-                    현재 플랜: {planBadge.label}
+                    <span>{planBadge.label}</span>
                   </div>
                 </div>
               )}
