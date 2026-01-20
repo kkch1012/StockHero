@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserMenu } from './UserMenu';
 import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
-import { CrownIcon, SparklesIcon, ZapIcon, Menu, X } from 'lucide-react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { isAdmin } from '@/lib/admin/config';
+import { CrownIcon, SparklesIcon, ZapIcon, Menu, X, ShieldCheckIcon } from 'lucide-react';
 
 const NAV_LINKS: { href: string; label: string; icon: string }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
@@ -25,6 +27,10 @@ const PLAN_BADGE_STYLES = {
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useAuth();
+  
+  // 관리자 여부 확인
+  const userIsAdmin = isAdmin(user?.email);
   
   // 구독 정보
   const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
@@ -79,6 +85,21 @@ export function Header() {
                 >
                   <CrownIcon className="w-4 h-4" />
                   <span>VIP</span>
+                </Link>
+              )}
+              
+              {/* 관리자 메뉴 */}
+              {userIsAdmin && (
+                <Link
+                  href="/admin"
+                  className={`px-3 xl:px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                    isActive('/admin')
+                      ? 'text-red-400 bg-red-500/20 border border-red-500/30'
+                      : 'text-red-400/70 hover:text-red-400 hover:bg-red-500/10'
+                  }`}
+                >
+                  <ShieldCheckIcon className="w-4 h-4" />
+                  <span>관리자</span>
                 </Link>
               )}
               
@@ -146,6 +167,22 @@ export function Header() {
                   >
                     <CrownIcon className="w-4 h-4" />
                     <span>VIP 대시보드</span>
+                  </Link>
+                )}
+                
+                {/* 관리자 메뉴 (관리자만) */}
+                {userIsAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`px-3 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 col-span-2 whitespace-nowrap ${
+                      isActive('/admin')
+                        ? 'text-red-400 bg-red-500/20 border border-red-500/30'
+                        : 'text-red-400/70 hover:text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    <ShieldCheckIcon className="w-4 h-4" />
+                    <span>관리자</span>
                   </Link>
                 )}
               </div>
