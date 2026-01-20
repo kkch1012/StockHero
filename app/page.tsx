@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Header } from '@/components';
-import { CHARACTERS } from '@/lib/characters';
+import { CHARACTERS, type CharacterInfo } from '@/lib/characters';
+import { CharacterDetailModal } from '@/components/CharacterDetailModal';
 import { PerformanceTeaser } from '@/components/PerformanceTeaser';
 import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { SparklesIcon } from 'lucide-react';
 
 const AI_EMOJIS: Record<string, string> = {
   claude: '🔵',
@@ -35,6 +38,8 @@ export default function HomePage() {
   const [verdict, setVerdict] = useState<TodayVerdict | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDebating, setIsDebating] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterInfo | null>(null);
+  const [showCharacterModal, setShowCharacterModal] = useState(false);
   
   // 구독 정보
   const { isPremium } = useCurrentPlan();
@@ -117,19 +122,73 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* AI Analysts Bar */}
-          <div className="flex justify-center gap-4 mb-8">
-            {(['claude', 'gemini', 'gpt'] as const).map((charId) => {
-              const char = CHARACTERS[charId];
-              return (
-                <div key={charId} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-dark-900/80 border border-dark-800">
-                  <div className={`w-8 h-8 rounded-lg ${char.bgColor} flex items-center justify-center`}>
-                    <span className="text-lg">{AI_EMOJIS[charId]}</span>
-                  </div>
-                  <span className="text-sm text-dark-300 hidden sm:block">{char.name}</span>
-                </div>
-              );
-            })}
+          {/* AI 3대장 소개 카드 */}
+          <div className="max-w-4xl mx-auto mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {(['claude', 'gemini', 'gpt'] as const).map((charId) => {
+                const char = CHARACTERS[charId];
+                return (
+                  <button
+                    key={charId}
+                    onClick={() => {
+                      setSelectedCharacter(char);
+                      setShowCharacterModal(true);
+                    }}
+                    className={`relative group p-4 rounded-2xl border ${char.borderColor} ${char.bgColor} hover:scale-[1.02] transition-all text-left`}
+                  >
+                    {/* Character Avatar & Info */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-14 h-14 rounded-xl overflow-hidden ring-2 ${char.borderColor} group-hover:ring-4 transition-all`}>
+                        <Image
+                          src={char.image}
+                          alt={char.name}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-bold ${char.color}`}>{char.nameKo}</h3>
+                        <p className="text-dark-400 text-xs">{char.name}</p>
+                      </div>
+                    </div>
+
+                    {/* Role */}
+                    <p className="text-dark-300 text-sm mb-3">{char.roleKo}</p>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {char.tags.slice(0, 3).map((tag, i) => (
+                        <span
+                          key={i}
+                          className={`px-2 py-0.5 text-xs rounded-full ${char.bgColor} border ${char.borderColor} ${char.color}`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center justify-between pt-3 border-t border-dark-800/50">
+                      <div>
+                        <p className={`text-lg font-bold ${char.color}`}>{char.accuracy}%</p>
+                        <p className="text-xs text-dark-500">적중률</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-dark-400">{char.totalAnalyses.toLocaleString()}</p>
+                        <p className="text-xs text-dark-500">총 분석</p>
+                      </div>
+                      <span
+                        className={`px-2 py-1 text-xs ${char.bgColor} border ${char.borderColor} ${char.color} rounded-lg flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}
+                      >
+                        <SparklesIcon className="w-3 h-3" />
+                        세계관
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Loading / Debating State */}
@@ -303,6 +362,15 @@ export default function HomePage() {
           </div>
         </footer>
       </main>
+      
+      {/* Character Detail Modal */}
+      {selectedCharacter && (
+        <CharacterDetailModal
+          character={selectedCharacter}
+          isOpen={showCharacterModal}
+          onClose={() => setShowCharacterModal(false)}
+        />
+      )}
     </>
   );
 }
