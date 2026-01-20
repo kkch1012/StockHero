@@ -438,6 +438,9 @@ export default function CalendarPage() {
                   const hasData = !!verdicts[dateStr];
                   const isSelected = selectedDate === dateStr;
                   const dayOfWeek = new Date(year, month, day).getDay();
+                  
+                  // 만장일치가 있는 날인지 확인
+                  const hasUnanimous = hasData && verdicts[dateStr].top5.some(stock => stock.isUnanimous);
 
                   return (
                     <button
@@ -452,14 +455,21 @@ export default function CalendarPage() {
                       className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all relative ${
                         isSelected
                           ? 'bg-brand-500 text-white'
+                          : hasUnanimous
+                          ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-500/50 hover:border-amber-400 cursor-pointer'
                           : hasData
                           ? 'bg-dark-800 hover:bg-dark-700 cursor-pointer'
                           : 'text-dark-600 cursor-default'
                       }`}
                     >
+                      {/* 만장일치 표시 - 좌상단 별 */}
+                      {hasUnanimous && !isSelected && (
+                        <span className="absolute -top-1 -right-1 text-amber-400 text-xs animate-pulse">✨</span>
+                      )}
                       <span className={`text-sm font-medium ${
                         !isSelected && dayOfWeek === 0 ? 'text-red-400' : 
-                        !isSelected && dayOfWeek === 6 ? 'text-blue-400' : ''
+                        !isSelected && dayOfWeek === 6 ? 'text-blue-400' :
+                        !isSelected && hasUnanimous ? 'text-amber-300' : ''
                       }`}>
                         {day}
                       </span>
@@ -474,10 +484,14 @@ export default function CalendarPage() {
               </div>
 
               {/* Legend */}
-              <div className="mt-6 flex items-center justify-center gap-4 text-xs text-dark-500">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs text-dark-500">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded bg-dark-800" />
                   <span>데이터 있음</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-amber-500/50" />
+                  <span className="text-amber-400">✨ 만장일치</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded bg-brand-500" />
