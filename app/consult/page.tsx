@@ -595,6 +595,37 @@ export default function ConsultPage() {
 
                   {/* Messages */}
                   <div className="h-[400px] overflow-y-auto p-5 space-y-4">
+                    {/* 첫 멘트 로딩 중 (GPT 스타일 큰 인디케이터) */}
+                    {loading && messages.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-full gap-4">
+                        <div className={`relative w-20 h-20 rounded-2xl overflow-hidden ring-2 ${char.borderColor}`}>
+                          <Image
+                            src={char.image}
+                            alt={char.name}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* 로딩 오버레이 */}
+                          <div className="absolute inset-0 bg-dark-900/50 flex items-center justify-center">
+                            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <p className={`font-medium ${char.color}`}>{char.nameKo}</p>
+                          <p className="text-dark-400 text-sm mt-1">
+                            {selectedStock.name} 분석 중...
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <div className={`w-2 h-2 ${char.color.replace('text-', 'bg-')} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }} />
+                          <div className={`w-2 h-2 ${char.color.replace('text-', 'bg-')} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }} />
+                          <div className={`w-2 h-2 ${char.color.replace('text-', 'bg-')} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 메시지 목록 */}
                     {messages.map((msg, i) => (
                       <div
                         key={i}
@@ -622,7 +653,9 @@ export default function ConsultPage() {
                         </div>
                       </div>
                     ))}
-                    {loading && (
+
+                    {/* 대화 중 로딩 (작은 인디케이터) */}
+                    {loading && messages.length > 0 && (
                       <div className="flex justify-start">
                         <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden mr-2 ring-1 ring-dark-700">
                           <Image
@@ -705,6 +738,20 @@ export default function ConsultPage() {
                           업그레이드
                         </button>
                       </div>
+                    ) : loading && messages.length === 0 ? (
+                      /* 첫 멘트 로딩 중 - 입력창 비활성화 상태 */
+                      <div className="flex gap-3">
+                        <div className="flex-1 px-4 py-3 bg-dark-800/50 border border-dark-700/50 rounded-xl text-dark-500 cursor-not-allowed flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-dark-600 border-t-dark-400 rounded-full animate-spin" />
+                          <span>{char.nameKo}의 분석을 기다리는 중...</span>
+                        </div>
+                        <button
+                          disabled
+                          className="px-5 py-3 bg-dark-700 text-dark-500 rounded-xl cursor-not-allowed"
+                        >
+                          전송
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex gap-3">
                         <input
@@ -713,7 +760,8 @@ export default function ConsultPage() {
                           onChange={(e) => setInput(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                           placeholder="질문을 입력하세요..."
-                          className="flex-1 px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-dark-100 focus:outline-none focus:border-brand-500"
+                          disabled={loading}
+                          className={`flex-1 px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-dark-100 focus:outline-none focus:border-brand-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
                         <button
                           onClick={sendMessage}
