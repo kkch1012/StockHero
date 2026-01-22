@@ -1,7 +1,6 @@
 'use client';
 
 import { Header } from '@/components';
-import { useCurrentPlan } from '@/lib/subscription/hooks';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { 
@@ -46,7 +45,6 @@ interface BacktestSummary {
 }
 
 export default function BacktestPage() {
-  const { isVip, isLoading: planLoading } = useCurrentPlan();
   const [results, setResults] = useState<BacktestResult[]>([]);
   const [summary, setSummary] = useState<BacktestSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,40 +85,8 @@ export default function BacktestPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; 
   };
-
-  // VIP 회원이면 VIP 페이지로 안내
-  if (!planLoading && isVip) {
-    return (
-      <>
-        <Header />
-        <main className="min-h-screen bg-dark-950 pt-24 pb-12">
-          <div className="fixed inset-0 bg-grid opacity-30" />
-          <div className="fixed top-1/4 left-0 w-[400px] h-[400px] bg-amber-600/10 rounded-full blur-[100px]" />
-          
-          <div className="relative container-app text-center py-20">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-500/20 rounded-full mb-6">
-              <CrownIcon className="w-10 h-10 text-amber-400" />
-            </div>
-            
-            <h1 className="text-3xl font-bold text-dark-100 mb-4">VIP 백테스트로 이동하세요!</h1>
-            <p className="text-dark-400 mb-8 max-w-md mx-auto">
-              VIP 회원님은 VIP 대시보드에서 무제한 기간 백테스트를 이용하실 수 있습니다.
-            </p>
-
-            <Link
-              href="/vip?tab=backtest"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-medium rounded-xl hover:from-amber-600 hover:to-amber-700 transition-all"
-            >
-              <BarChart3Icon className="w-5 h-5" />
-              VIP 백테스트 바로가기
-            </Link>
-          </div>
-        </main>
-      </>
-    );
-  }
 
   return (
     <>
