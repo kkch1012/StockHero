@@ -184,7 +184,7 @@ export function DebateTranscript({ debateLog, isLoading }: Props) {
                         {/* Analysis Text */}
                         {analysisText && (
                           <p className="text-sm text-dark-200 mb-3 line-clamp-2">
-                            "{analysisText}"
+                            &ldquo;{analysisText}&rdquo;
                           </p>
                         )}
 
