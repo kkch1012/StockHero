@@ -312,11 +312,72 @@ ${previousContext}
   return { round: roundNumber, messages };
 }
 
-// 최종 합의 도출
-function deriveConsensus(rounds: DebateRound[]): any[] {
-  const scoreMap = new Map<string, { votes: number; scores: number[]; reasons: string[] }>();
+// 개별 AI의 최종 Top 5 추출 (2라운드 기준 - 각자의 Top 5 확정)
+function extractIndividualTop5(rounds: DebateRound[]): {
+  claude: string[];
+  gemini: string[];
+  gpt: string[];
+} {
+  const result = { claude: [] as string[], gemini: [] as string[], gpt: [] as string[] };
   
-  // 3라운드 결과 우선
+  // 2라운드에서 각 AI의 개별 Top 5 추출
+  const round2 = rounds.find(r => r.round === 2);
+  if (round2) {
+    for (const msg of round2.messages) {
+      if (msg.picks && msg.picks.length > 0) {
+        result[msg.character] = msg.picks.slice(0, 5);
+      }
+    }
+  }
+  
+  // 2라운드가 없으면 1라운드에서 추출
+  if (result.claude.length === 0 || result.gemini.length === 0 || result.gpt.length === 0) {
+    const round1 = rounds.find(r => r.round === 1);
+    if (round1) {
+      for (const msg of round1.messages) {
+        if (msg.picks && msg.picks.length > 0 && result[msg.character].length === 0) {
+          result[msg.character] = msg.picks.slice(0, 5);
+        }
+      }
+    }
+  }
+  
+  return result;
+}
+
+// 최종 합의 도출
+function deriveConsensus(rounds: DebateRound[]): { top5: any[]; individualPicks: { claude: string[]; gemini: string[]; gpt: string[] } } {
+  const scoreMap = new Map<string, { 
+    votes: number; 
+    scores: number[]; 
+    reasons: string[];
+    selectedBy: Set<string>;
+  }>();
+  
+  // 각 AI의 개별 Top 5 추출
+  const individualPicks = extractIndividualTop5(rounds);
+  
+  // 개별 AI의 선택을 점수화 (1라운드 + 2라운드)
+  for (const round of rounds.slice(0, 2)) {
+    for (const msg of round.messages) {
+      const picks = msg.picks || [];
+      picks.forEach((symbol, idx) => {
+        const existing = scoreMap.get(symbol) || { 
+          votes: 0, 
+          scores: [], 
+          reasons: [],
+          selectedBy: new Set<string>()
+        };
+        // 순위에 따른 가중치 점수 (1위: 5점, 2위: 4점, ...)
+        const rankScore = Math.max(5 - idx, 1);
+        existing.scores.push(rankScore);
+        existing.selectedBy.add(msg.character);
+        scoreMap.set(symbol, existing);
+      });
+    }
+  }
+  
+  // 3라운드 합의 결과도 반영 (추가 가중치)
   const finalRound = rounds[rounds.length - 1];
   for (const msg of finalRound.messages) {
     try {
@@ -325,10 +386,16 @@ function deriveConsensus(rounds: DebateRound[]): any[] {
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.consensusPicks) {
           for (const pick of parsed.consensusPicks) {
-            const existing = scoreMap.get(pick.symbol) || { votes: 0, scores: [], reasons: [] };
+            const existing = scoreMap.get(pick.symbol) || { 
+              votes: 0, 
+              scores: [], 
+              reasons: [],
+              selectedBy: new Set<string>()
+            };
             existing.votes += 1;
             existing.scores.push(pick.score || 3);
             existing.reasons.push(`${msg.character}: ${pick.reason || ''}`);
+            existing.selectedBy.add(msg.character);
             scoreMap.set(pick.symbol, existing);
           }
         }
@@ -342,26 +409,50 @@ function deriveConsensus(rounds: DebateRound[]): any[] {
   const results = Array.from(scoreMap.entries())
     .map(([symbol, data]) => {
       const stock = CANDIDATE_STOCKS.find(s => s.symbol === symbol);
+      const avgScore = data.scores.length > 0 
+        ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length 
+        : 0;
+      
+      // 실제 만장일치 여부: 3명 모두 선택했는지
+      const isUnanimous = data.selectedBy.size >= 3;
+      
+      // 개별 AI 점수 계산
+      const claudeScore = individualPicks.claude.includes(symbol) 
+        ? 5 - individualPicks.claude.indexOf(symbol) 
+        : 0;
+      const geminiScore = individualPicks.gemini.includes(symbol) 
+        ? 5 - individualPicks.gemini.indexOf(symbol) 
+        : 0;
+      const gptScore = individualPicks.gpt.includes(symbol) 
+        ? 5 - individualPicks.gpt.indexOf(symbol) 
+        : 0;
+      
       return {
         symbol,
         name: stock?.name || symbol,
         sector: stock?.sector || '기타',
-        votes: data.votes,
-        avgScore: data.scores.reduce((a, b) => a + b, 0) / data.scores.length,
-        isUnanimous: data.votes >= 3,
+        votes: data.selectedBy.size,
+        avgScore: Math.round(avgScore * 10) / 10,
+        isUnanimous,
         reasons: data.reasons,
         tags: stock?.tags || [],
+        claudeScore,
+        geminiScore,
+        gptScore,
       };
     })
     .sort((a, b) => {
-      // 만장일치 우선, 그 다음 점수
+      // 1. 만장일치 우선
       if (a.isUnanimous !== b.isUnanimous) return b.isUnanimous ? 1 : -1;
+      // 2. 선택한 AI 수
+      if (a.votes !== b.votes) return b.votes - a.votes;
+      // 3. 평균 점수
       return b.avgScore - a.avgScore;
     })
     .slice(0, 5)
     .map((item, idx) => ({ ...item, rank: idx + 1 }));
 
-  return results;
+  return { top5: results, individualPicks };
 }
 
 export async function GET(request: NextRequest) {
@@ -443,14 +534,19 @@ export async function GET(request: NextRequest) {
     rounds.push(round3);
 
     // 최종 Top 5 도출
-    const top5 = deriveConsensus(rounds);
+    const { top5, individualPicks } = deriveConsensus(rounds);
     
     if (top5.length === 0) {
       throw new Error('Failed to derive consensus Top 5');
     }
 
     console.log('\n🏆 최종 Top 5:');
-    top5.forEach(t => console.log(`  ${t.rank}. ${t.name} (${t.symbol}) - 점수: ${t.avgScore.toFixed(1)}, 만장일치: ${t.isUnanimous ? '✅' : '❌'}`));
+    top5.forEach(t => console.log(`  ${t.rank}. ${t.name} (${t.symbol}) - 점수: ${t.avgScore}, 만장일치: ${t.isUnanimous ? '✅' : '❌'}, Claude: ${t.claudeScore}, Gemini: ${t.geminiScore}, GPT: ${t.gptScore}`));
+    
+    console.log('\n📊 개별 AI 선택:');
+    console.log(`  Claude: ${individualPicks.claude.join(', ')}`);
+    console.log(`  Gemini: ${individualPicks.gemini.join(', ')}`);
+    console.log(`  GPT: ${individualPicks.gpt.join(', ')}`);
 
     // 토론 로그 저장
     const debateLog = {
@@ -465,14 +561,35 @@ export async function GET(request: NextRequest) {
       })),
     };
 
+    // 개별 AI Top 5 정보 (종목 상세 정보 포함)
+    const makeTop5WithDetails = (symbols: string[]) => 
+      symbols.map((symbol, idx) => {
+        const stock = CANDIDATE_STOCKS.find(s => s.symbol === symbol);
+        return {
+          rank: idx + 1,
+          symbol,
+          name: stock?.name || symbol,
+          sector: stock?.sector || '기타',
+          score: 5 - idx, // 순위에 따른 점수
+        };
+      });
+
+    const claudeTop5 = makeTop5WithDetails(individualPicks.claude);
+    const geminiTop5 = makeTop5WithDetails(individualPicks.gemini);
+    const gptTop5 = makeTop5WithDetails(individualPicks.gpt);
+
     // Verdict 저장
-    const consensusSummary = `🎯 AI 3대장 토론 완료 | ${top5.filter(t => t.isUnanimous).length}개 만장일치 | 1위: ${top5[0]?.name}`;
+    const unanimousCount = top5.filter(t => t.isUnanimous).length;
+    const consensusSummary = `🎯 AI 3대장 토론 완료 | ${unanimousCount}개 만장일치 | 1위: ${top5[0]?.name}`;
     
     // 먼저 debate_log 컬럼이 있는지 확인하고 없으면 기본 데이터만 저장
     let insertData: any = {
       date: today,
       top5: top5,
       consensus_summary: consensusSummary,
+      claude_top5: claudeTop5,
+      gemini_top5: geminiTop5,
+      gpt_top5: gptTop5,
     };
     
     // debate_log 컬럼 추가 시도 (컬럼이 없으면 무시됨)
@@ -489,58 +606,56 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error) {
-      // debate_log 컬럼이 없으면 해당 필드 제외하고 재시도
-      if (error.message.includes('debate_log')) {
-        console.log('Retrying without debate_log column...');
-        const { data: verdictRetry, error: retryError } = await supabase
-          .from('verdicts')
-          .insert({
-            date: today,
-            top5: top5,
-            consensus_summary: consensusSummary,
-          })
-          .select()
-          .single();
-        
-        if (retryError) {
-          console.error('Supabase INSERT error (retry):', retryError);
-          throw retryError;
-        }
-        
-        // 토론 로그는 별도로 콘솔에 출력
-        console.log('\n📜 토론 로그 (DB 저장 불가):');
-        console.log(JSON.stringify(debateLog, null, 2).substring(0, 1000));
-        
-        // Predictions 저장
-        for (const stock of top5) {
-          await supabase.from('predictions').insert({
-            verdict_id: verdictRetry.id,
-            symbol_code: stock.symbol,
-            symbol_name: stock.name,
-            predicted_direction: stock.avgScore >= 4 ? 'up' : stock.avgScore >= 3 ? 'hold' : 'down',
-            avg_score: stock.avgScore,
-            date: today,
-          });
-        }
-
-        console.log(`\n✅ 토론 완료 및 저장 성공! (debate_log 제외)`);
-
-        return NextResponse.json({
-          success: true,
-          message: 'Daily Top 5 generated via AI debate (debate_log column not available)',
+      // debate_log 또는 개별 AI top5 컬럼이 없으면 기본 데이터만 저장
+      console.log('Retrying with minimal data...', error.message);
+      const { data: verdictRetry, error: retryError } = await supabase
+        .from('verdicts')
+        .insert({
           date: today,
-          verdict: {
-            id: verdictRetry.id,
-            top5,
-            consensusSummary,
-          },
-          debateRounds: rounds.length,
-          debateLog, // API 응답에는 포함
-        });
+          top5: top5,
+          consensus_summary: consensusSummary,
+        })
+        .select()
+        .single();
+      
+      if (retryError) {
+        console.error('Supabase INSERT error (retry):', retryError);
+        throw retryError;
       }
       
-      console.error('Supabase INSERT error:', error);
-      throw error;
+      // 토론 로그는 별도로 콘솔에 출력
+      console.log('\n📜 토론 로그 (DB 저장 불가):');
+      console.log(JSON.stringify(debateLog, null, 2).substring(0, 1000));
+      
+      // Predictions 저장
+      for (const stock of top5) {
+        await supabase.from('predictions').insert({
+          verdict_id: verdictRetry.id,
+          symbol_code: stock.symbol,
+          symbol_name: stock.name,
+          predicted_direction: stock.avgScore >= 4 ? 'up' : stock.avgScore >= 3 ? 'hold' : 'down',
+          avg_score: stock.avgScore,
+          date: today,
+        });
+      }
+
+      console.log(`\n✅ 토론 완료 및 저장 성공! (일부 컬럼 제외)`);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Daily Top 5 generated via AI debate',
+        date: today,
+        verdict: {
+          id: verdictRetry.id,
+          top5,
+          consensusSummary,
+          claudeTop5,
+          geminiTop5,
+          gptTop5,
+        },
+        debateRounds: rounds.length,
+        individualPicks,
+      });
     }
 
     // Predictions 저장
@@ -565,8 +680,12 @@ export async function GET(request: NextRequest) {
         id: verdict.id,
         top5,
         consensusSummary,
+        claudeTop5,
+        geminiTop5,
+        gptTop5,
       },
       debateRounds: rounds.length,
+      individualPicks,
     });
 
   } catch (error: any) {
