@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily-verdict",
+      "path": "/api/cron/daily-top5-debate",
       "schedule": "0 23 * * *"
     }
   ]

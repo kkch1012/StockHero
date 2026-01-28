@@ -14,6 +14,10 @@ import {
   XIcon,
   CrownIcon,
   RefreshCwIcon,
+  SparklesIcon,
+  PlayIcon,
+  CalendarIcon,
+  AlertCircleIcon,
 } from 'lucide-react';
 
 interface User {
@@ -50,9 +54,21 @@ interface PaymentStats {
   failedTransactions: number;
 }
 
+interface DebateResult {
+  date: string;
+  top5: Array<{
+    rank: number;
+    symbol: string;
+    name: string;
+    avgScore: number;
+    isUnanimous: boolean;
+  }>;
+  message: string;
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading, session } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'payments'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'payments' | 'ai-debate'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null);
@@ -60,6 +76,17 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [upgradeUserId, setUpgradeUserId] = useState<string | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  
+  // AI 토론 관련 상태
+  const [debateLoading, setDebateLoading] = useState(false);
+  const [debateResult, setDebateResult] = useState<DebateResult | null>(null);
+  const [debateError, setDebateError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    return kst.toISOString().split('T')[0];
+  });
+  const [forceRegenerate, setForceRegenerate] = useState(false);
 
   // 관리자 권한 체크
   const userIsAdmin = isAdmin(user?.email);
@@ -137,6 +164,40 @@ export default function AdminPage() {
       alert('권한 변경에 실패했습니다.');
     } finally {
       setUpgradeLoading(false);
+    }
+  };
+
+  // AI 토론 생성 함수
+  const generateDebate = async () => {
+    setDebateLoading(true);
+    setDebateError(null);
+    setDebateResult(null);
+    
+    try {
+      const url = `/api/cron/daily-top5-debate?date=${selectedDate}${forceRegenerate ? '&force=true' : ''}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setDebateResult({
+          date: data.date,
+          top5: data.verdict?.top5 || [],
+          message: data.message,
+        });
+      } else {
+        setDebateError(data.error || 'AI 토론 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to generate debate:', error);
+      setDebateError('AI 토론 생성 중 오류가 발생했습니다.');
+    } finally {
+      setDebateLoading(false);
     }
   };
 
@@ -283,6 +344,17 @@ export default function AdminPage() {
             >
               <CreditCardIcon className="w-4 h-4" />
               결제 내역
+            </button>
+            <button
+              onClick={() => setActiveTab('ai-debate')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+                activeTab === 'ai-debate'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                  : 'bg-dark-800 text-dark-400 hover:text-dark-200'
+              }`}
+            >
+              <SparklesIcon className="w-4 h-4" />
+              AI 토론 관리
             </button>
           </div>
 
@@ -500,6 +572,189 @@ export default function AdminPage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Debate Tab */}
+          {activeTab === 'ai-debate' && (
+            <div className="space-y-6">
+              {/* 설명 */}
+              <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                    <SparklesIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white mb-2">AI 3대장 토론 시스템</h2>
+                    <p className="text-dark-300 text-sm mb-3">
+                      Claude, Gemini, GPT 세 AI가 3라운드 토론을 통해 오늘의 Top 5 종목을 선정합니다.
+                      매일 오전 8시(KST)에 자동 실행되며, 여기서 수동으로 트리거할 수도 있습니다.
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-dark-400">
+                      <span className="flex items-center gap-1">
+                        <CalendarIcon className="w-3 h-3" />
+                        자동 실행: 매일 오전 8시 (KST)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 토론 생성 컨트롤 */}
+              <div className="bg-dark-900/80 border border-dark-800 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4">토론 생성</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* 날짜 선택 */}
+                  <div>
+                    <label className="block text-sm text-dark-400 mb-2">날짜 선택</label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  {/* 강제 재생성 옵션 */}
+                  <div>
+                    <label className="block text-sm text-dark-400 mb-2">옵션</label>
+                    <label className="flex items-center gap-3 px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl cursor-pointer hover:border-dark-600">
+                      <input
+                        type="checkbox"
+                        checked={forceRegenerate}
+                        onChange={(e) => setForceRegenerate(e.target.checked)}
+                        className="w-4 h-4 rounded border-dark-600 text-purple-500 focus:ring-purple-500 bg-dark-700"
+                      />
+                      <span className="text-white text-sm">기존 데이터 덮어쓰기</span>
+                    </label>
+                  </div>
+                  
+                  {/* 실행 버튼 */}
+                  <div>
+                    <label className="block text-sm text-dark-400 mb-2">실행</label>
+                    <button
+                      onClick={generateDebate}
+                      disabled={debateLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {debateLoading ? (
+                        <>
+                          <RefreshCwIcon className="w-5 h-5 animate-spin" />
+                          AI 토론 진행 중...
+                        </>
+                      ) : (
+                        <>
+                          <PlayIcon className="w-5 h-5" />
+                          토론 시작
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 로딩 상태 */}
+                {debateLoading && (
+                  <div className="bg-dark-800 border border-dark-700 rounded-xl p-6 text-center">
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center animate-pulse">
+                        <span className="text-2xl">🎓</span>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse" style={{ animationDelay: '0.2s' }}>
+                        <span className="text-2xl">🚀</span>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center animate-pulse" style={{ animationDelay: '0.4s' }}>
+                        <span className="text-2xl">🎩</span>
+                      </div>
+                    </div>
+                    <p className="text-dark-300 mb-2">3명의 AI가 열띤 토론 중입니다...</p>
+                    <p className="text-dark-500 text-sm">약 30초~1분 소요됩니다</p>
+                  </div>
+                )}
+
+                {/* 에러 */}
+                {debateError && (
+                  <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircleIcon className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-red-400 font-medium">오류 발생</p>
+                      <p className="text-red-300/80 text-sm">{debateError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 결과 */}
+                {debateResult && (
+                  <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-xl p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <CheckIcon className="w-5 h-5 text-emerald-400" />
+                      <span className="text-emerald-400 font-medium">토론 완료!</span>
+                      <span className="text-dark-400 text-sm">({debateResult.date})</span>
+                    </div>
+                    
+                    <p className="text-dark-300 text-sm mb-4">{debateResult.message}</p>
+                    
+                    {debateResult.top5.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-white font-medium mb-3">🏆 선정된 Top 5</p>
+                        {debateResult.top5.map((stock, idx) => (
+                          <div 
+                            key={stock.symbol}
+                            className="flex items-center justify-between bg-dark-800/50 rounded-lg px-4 py-3"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                idx === 0 ? 'bg-amber-500/20 text-amber-400' :
+                                idx === 1 ? 'bg-gray-400/20 text-gray-300' :
+                                idx === 2 ? 'bg-orange-500/20 text-orange-400' :
+                                'bg-dark-700 text-dark-400'
+                              }`}>
+                                {idx + 1}
+                              </span>
+                              <div>
+                                <p className="text-white font-medium">{stock.name}</p>
+                                <p className="text-dark-500 text-xs">{stock.symbol}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {stock.isUnanimous && (
+                                <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                                  만장일치
+                                </span>
+                              )}
+                              <span className="text-lg font-bold text-amber-400">
+                                {stock.avgScore.toFixed(1)}점
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 크론잡 상태 안내 */}
+              <div className="bg-dark-900/80 border border-dark-800 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4">자동 실행 설정</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="text-dark-300">Vercel Cron: <code className="text-purple-400">0 23 * * *</code> (UTC)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="text-dark-300">한국 시간: 매일 오전 8시</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span className="text-dark-300">API 엔드포인트: <code className="text-purple-400">/api/cron/daily-top5-debate</code></span>
+                  </div>
+                </div>
+                <p className="text-dark-500 text-xs mt-4">
+                  * Vercel Pro 플랜에서 크론잡이 자동 실행됩니다. 무료 플랜에서는 수동 트리거가 필요합니다.
+                </p>
               </div>
             </div>
           )}

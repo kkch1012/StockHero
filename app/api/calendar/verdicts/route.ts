@@ -139,9 +139,11 @@ export async function GET(request: NextRequest) {
 
     // 필요한 필드만 최소한으로 선택 (성능 최적화)
     const supabase = getSupabase();
+    
+    // 기본 쿼리 (debate_log 컬럼이 없을 수 있음)
     const { data: dbVerdicts, error } = await supabase
       .from('verdicts')
-      .select('date, top5')
+      .select('date, top5, consensus_summary')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
@@ -155,11 +157,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // DB 데이터만 사용 (더미 데이터 없음) - 동기 처리로 빠름
-    const verdicts = (dbVerdicts || []).map(dbVerdict => 
-      convertDBVerdictToCalendarFormat(dbVerdict)
-    );
-
     // 요일별 테마 정보
     const DAY_THEMES: Record<number, { name: string; emoji: string }> = {
       0: { name: '종합 밸런스', emoji: '⚖️' },
@@ -171,27 +168,35 @@ export async function GET(request: NextRequest) {
       6: { name: '히든 젬', emoji: '🌟' },
     };
 
-    // Convert to calendar format with theme info (최소 데이터만 반환)
-    const calendarVerdicts = verdicts.map(v => {
-      const dateObj = new Date(v.date);
+    // Convert to calendar format with theme info
+    const calendarVerdicts = (dbVerdicts || []).map(dbVerdict => {
+      const dateObj = new Date(dbVerdict.date);
       const dayOfWeek = dateObj.getDay();
       const theme = DAY_THEMES[dayOfWeek];
+      const v = convertDBVerdictToCalendarFormat(dbVerdict);
+      
+      // top5에서 votes 정보로 만장일치 여부 판단
+      const top5Data = v.top5.map((item: any) => {
+        const originalItem = (dbVerdict.top5 || []).find((t: any) => t.symbol === item.symbolCode);
+        return {
+          rank: item.rank,
+          symbol: item.symbolCode,
+          name: item.symbolName,
+          avgScore: item.avgScore || originalItem?.avgScore || 4.0,
+          isUnanimous: originalItem?.isUnanimous || originalItem?.votes >= 3 || false,
+          claudeScore: item.claudeScore || 0,
+          geminiScore: item.geminiScore || 0,
+          gptScore: item.gptScore || 0,
+          currentPrice: item.currentPrice || 0,
+          reasons: originalItem?.reasons || [],
+        };
+      });
       
       return {
         date: v.date,
         theme: theme,
-        top5: v.top5.map((item: any) => ({
-          rank: item.rank,
-          symbol: item.symbolCode,
-          name: item.symbolName,
-          avgScore: item.avgScore,
-          isUnanimous: item.claudeScore > 0 && item.geminiScore > 0 && item.gptScore > 0,
-          claudeScore: item.claudeScore,
-          geminiScore: item.geminiScore,
-          gptScore: item.gptScore,
-          currentPrice: item.currentPrice || 0,
-        })),
-        consensusSummary: '',
+        top5: top5Data,
+        consensusSummary: (dbVerdict as any).consensus_summary || '',
       };
     });
 
@@ -199,8 +204,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       verdicts: calendarVerdicts,
-      dbCount: verdicts.length,
-      todayHasData: verdicts.some(v => v.date === todayStr),
+      dbCount: calendarVerdicts.length,
+      todayHasData: calendarVerdicts.some(v => v.date === todayStr),
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
