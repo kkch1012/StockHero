@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fetchMultipleStockPrices } from '@/lib/market-data/kis';
+import { verifyCronAuth, logCronExecution } from '@/lib/cron-auth';
 
 // Supabase Admin Client
 const supabase = createClient(
@@ -339,13 +340,11 @@ function aggregateTop5(claudeTop5: any[], geminiTop5: any[], gptTop5: any[], rea
 }
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret (for security in production)
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  
-  // In development, allow without auth
-  if (process.env.NODE_ENV === 'production' && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // CRON 인증 검증 (보안 강화)
+  const authResult = verifyCronAuth(request);
+  if (!authResult.authorized) {
+    logCronExecution('daily-verdict', 'manual', false, { error: authResult.error });
+    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
 
   // URL 파라미터에서 date 확인 (과거 날짜 생성용)

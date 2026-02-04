@@ -10,17 +10,41 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// 웹훅 시크릿 검증
+// 웹훅 시크닛 검증 (HMAC-SHA256)
 function verifyWebhookSignature(signature: string | null, body: string): boolean {
-  // 실제 프로덕션에서는 포트원에서 제공하는 시크릿으로 검증해야 함
   const webhookSecret = process.env.PORTONE_WEBHOOK_SECRET;
+
+  // 개발 환경에서는 시크릿이 없으면 스킵
   if (!webhookSecret) {
-    console.warn('PORTONE_WEBHOOK_SECRET not configured');
-    return true; // 개발 환경에서는 스킵
+    console.warn('[Webhook] PORTONE_WEBHOOK_SECRET not configured - skipping verification');
+    return process.env.NODE_ENV !== 'production'; // 프로덕션에서는 반드시 검증
   }
-  
-  // TODO: HMAC 검증 구현
-  return true;
+
+  if (!signature) {
+    console.warn('[Webhook] No signature provided');
+    return false;
+  }
+
+  try {
+    const crypto = require('crypto');
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(body, 'utf8')
+      .digest('hex');
+
+    // 타이밍 공격 방지를 위한 상수 시간 비교
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+  } catch (error) {
+    console.error('[Webhook] Signature verification error:', error);
+    return false;
+  }
 }
 
 export async function POST(request: Request) {

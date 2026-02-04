@@ -85,7 +85,24 @@ export async function POST(request: NextRequest) {
       paymentInfo = await getPortOnePayment(paymentId);
     } catch (error) {
       console.error('PortOne payment verification failed:', error);
-      // 테스트 환경에서는 검증 스킵
+
+      // 프로덕션 환경에서는 검증 실패 시 에러 반환 (보안 강화)
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          { success: false, error: '결제 검증에 실패했습니다. 고객센터로 문의해주세요.' },
+          { status: 500 }
+        );
+      }
+
+      // 개발 환경에서만 테스트 모드 허용 (명시적 플래그 필요)
+      if (process.env.PAYMENT_TEST_MODE !== 'true') {
+        return NextResponse.json(
+          { success: false, error: '결제 검증에 실패했습니다.' },
+          { status: 500 }
+        );
+      }
+
+      console.warn('[Payment] Using test mode - skipping verification');
       paymentInfo = { status: 'PAID', amount: { total: transaction.amount } };
     }
 

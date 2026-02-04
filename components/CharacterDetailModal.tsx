@@ -58,6 +58,9 @@ export function CharacterDetailModal({ character, isOpen, onClose }: CharacterDe
       <div
         ref={modalRef}
         className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-dark-900 border border-dark-700 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="character-detail-modal-title"
       >
         {/* Character Detail View */}
         <div className="max-h-[90vh] overflow-y-auto">
@@ -65,8 +68,9 @@ export function CharacterDetailModal({ character, isOpen, onClose }: CharacterDe
             <button
               onClick={onClose}
               className="absolute top-4 right-4 p-2 rounded-full bg-dark-800/80 hover:bg-dark-700 transition-colors z-10"
+              aria-label="닫기"
             >
-              <svg className="w-5 h-5 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -90,7 +94,7 @@ export function CharacterDetailModal({ character, isOpen, onClose }: CharacterDe
 
                 {/* Basic Info */}
                 <div className="flex-1 pt-2">
-                  <h2 className="text-2xl font-bold text-white mb-1">{character.name}</h2>
+                  <h2 id="character-detail-modal-title" className="text-2xl font-bold text-white mb-1">{character.name}</h2>
                   <p className="text-white/80 text-sm mb-1">{character.nameKo}</p>
                   <p className="text-white/60 text-sm mb-3">{character.roleKo}</p>
                   

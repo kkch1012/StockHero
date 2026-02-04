@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSubscription } from '@/lib/subscription/hooks';
 
 interface HiddenGem {
   rank: number;
@@ -233,9 +235,12 @@ function GemCard({ gem, index, isPremium }: { gem: HiddenGem; index: number; isP
           
           {/* CTA for partial view */}
           {isPartiallyVisible && (
-            <button className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-violet-500/25">
+            <Link
+              href="/subscription"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-violet-500/25 block text-center"
+            >
               🔓 프리미엄으로 전체 분석 보기
-            </button>
+            </Link>
           )}
         </div>
       )}
@@ -247,7 +252,10 @@ export function HiddenGemsSection() {
   const [data, setData] = useState<HiddenGemsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPremium, setIsPremium] = useState(false); // TODO: 실제 프리미엄 상태 연동
+  const router = useRouter();
+
+  // 실제 프리미엄 상태 연동
+  const { isPremium, isLoading: subscriptionLoading } = useSubscription();
   
   useEffect(() => {
     async function fetchGems() {
@@ -348,7 +356,10 @@ export function HiddenGemsSection() {
                 무료 회원은 첫 번째 종목만 미리보기로 제공됩니다
               </p>
             </div>
-            <button className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-colors shrink-0">
+            <button
+              onClick={() => router.push('/subscription')}
+              className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-colors shrink-0"
+            >
               업그레이드
             </button>
           </div>
@@ -382,14 +393,17 @@ export function HiddenGemsSection() {
       {/* Premium CTA */}
       {!isPremium && (
         <div className="mt-6">
-          <button className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2">
+          <button
+            onClick={() => router.push('/subscription')}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             프리미엄 구독하고 모든 숨은 보석 확인하기
           </button>
           <p className="text-center text-xs text-dark-500 mt-2">
-            월 9,900원 • 언제든 해지 가능
+            월 29,900원 • 언제든 해지 가능
           </p>
         </div>
       )}

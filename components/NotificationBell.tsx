@@ -191,6 +191,9 @@ export function NotificationBell() {
           isOpen ? 'bg-dark-800 text-brand-400' : 'text-dark-400 hover:text-dark-200 hover:bg-dark-800/50'
         }`}
         title={isFreeUser ? '알림을 받으려면 베이직으로 업그레이드' : '알림'}
+        aria-label={unreadCount > 0 ? `알림 ${unreadCount}개` : '알림'}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
         {unreadCount > 0 ? (
           <BellRingIcon className="w-5 h-5 animate-pulse" />

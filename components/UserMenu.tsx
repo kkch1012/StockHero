@@ -63,6 +63,9 @@ export function UserMenu() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 p-1 rounded-full hover:bg-dark-800 transition-colors"
+        aria-label="사용자 메뉴"
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
         {user.user_metadata?.avatar_url ? (
           <Image
@@ -80,7 +83,11 @@ export function UserMenu() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 rounded-xl bg-dark-800 border border-dark-700 shadow-xl overflow-hidden z-50">
+        <div
+          className="absolute right-0 mt-2 w-64 rounded-xl bg-dark-800 border border-dark-700 shadow-xl overflow-hidden z-50"
+          role="menu"
+          aria-label="사용자 메뉴"
+        >
           <div className="p-4 border-b border-dark-700">
             <div className="flex items-center gap-3">
               {user.user_metadata?.avatar_url ? (

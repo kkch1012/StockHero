@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyCronAuth, logCronExecution } from '@/lib/cron-auth';
 import {
   sendMorningBriefing,
   sendPriceSurgeAlert,
@@ -252,15 +253,11 @@ async function cleanupAlerts(): Promise<number> {
  * Cron Job 핸들러
  */
 export async function GET(request: NextRequest) {
-  // Cron 인증 확인 (Vercel Cron은 자동으로 CRON_SECRET 헤더 추가)
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  // 개발 환경이 아니고 시크릿이 설정된 경우 검증
-  if (process.env.NODE_ENV !== 'development' && cronSecret) {
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  // CRON 인증 검증 (보안 강화)
+  const authResult = verifyCronAuth(request);
+  if (!authResult.authorized) {
+    logCronExecution('send-alerts', 'manual', false, { error: authResult.error });
+    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);

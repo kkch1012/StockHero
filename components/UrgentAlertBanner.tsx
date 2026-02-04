@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CharacterAvatar } from './CharacterAvatar';
 import type { CharacterType } from '@/lib/llm/types';
+import { useSubscription } from '@/lib/subscription/hooks';
 
 interface UrgentAlert {
   id: string;
@@ -158,9 +159,11 @@ function CountdownTimer() {
 
 export function UrgentAlertBanner() {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isPremium] = useState(false); // 실제로는 auth에서 가져와야 함
   const [alerts, setAlerts] = useState<UrgentAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // 실제 프리미엄 상태 연동
+  const { isPremium } = useSubscription();
   
   // 실시간 알림 가져오기
   useEffect(() => {

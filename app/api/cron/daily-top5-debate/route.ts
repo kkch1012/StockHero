@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyCronAuth, logCronExecution } from '@/lib/cron-auth';
 
 /**
  * 🎯 AI 3대장 토론 기반 Top 5 추천 시스템
@@ -456,17 +457,11 @@ function deriveConsensus(rounds: DebateRound[]): { top5: any[]; individualPicks:
 }
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret (optional - Vercel Cron doesn't send auth headers by default)
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  const vercelCronHeader = request.headers.get('x-vercel-cron');
-  
-  // Vercel Cron 요청이면 허용 (Vercel이 자동으로 x-vercel-cron 헤더 추가)
-  const isVercelCron = vercelCronHeader === '1' || request.headers.get('user-agent')?.includes('vercel-cron');
-  
-  // 인증 체크: Vercel Cron이거나 올바른 인증 헤더가 있으면 허용
-  if (process.env.NODE_ENV === 'production' && cronSecret && !isVercelCron && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // CRON 인증 검증 (보안 강화)
+  const authResult = verifyCronAuth(request);
+  if (!authResult.authorized) {
+    logCronExecution('daily-top5-debate', 'manual', false, { error: authResult.error });
+    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
 
   // URL 파라미터

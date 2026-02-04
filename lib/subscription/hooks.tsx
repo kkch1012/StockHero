@@ -22,9 +22,10 @@ import {
 } from './utils';
 
 // =====================================================
-// 🆓 무료 모드 설정 - 모든 기능 활성화
+// 🆓 무료 모드 설정 - 환경변수로 제어
+// SUBSCRIPTION_ENABLED=false이면 무료 모드 (모든 기능 활성화)
 // =====================================================
-const FREE_MODE = false; // true면 모든 기능 무료 이용 가능
+const FREE_MODE = process.env.NEXT_PUBLIC_SUBSCRIPTION_ENABLED !== 'true';
 
 // Pro 플랜으로 설정 (모든 기능 활성화)
 const DEFAULT_PRO_PLAN: SubscriptionPlan = {
@@ -75,8 +76,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [error, setError] = useState<Error | null>(null);
   const [upgradeModal, setUpgradeModal] = useState<UpgradeModalState>({ isOpen: false });
 
-  // 구독 정보 새로고침 (무료 모드에서는 즉시 Pro 반환)
+  // 구독 정보 새로고침
   const refreshSubscription = useCallback(async () => {
+    // 무료 모드에서는 즉시 Pro 반환
     if (FREE_MODE) {
       setCurrentPlan(DEFAULT_PRO_PLAN);
       setSubscription(null);
@@ -84,9 +86,58 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       setIsLoading(false);
       return;
     }
-    // 기존 Supabase 로직은 유료 모드 활성화 시 사용
-    setCurrentPlan(DEFAULT_FREE_PLAN);
-    setIsLoading(false);
+
+    // 유료 모드: 실제 구독 정보 조회
+    setIsLoading(true);
+    try {
+      const { createBrowserClient } = await import('@/lib/supabase/client');
+      const supabase = createBrowserClient();
+      if (!supabase) {
+        setCurrentPlan(DEFAULT_FREE_PLAN);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setCurrentPlan(DEFAULT_FREE_PLAN);
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/subscription', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const tierName = data.tier || 'free';
+
+        setCurrentPlan({
+          id: `subscription-${tierName}`,
+          name: tierName,
+          displayName: tierName === 'premium' ? '프리미엄' : tierName === 'pro' ? 'Pro' : '무료',
+          priceMonthly: tierName === 'premium' ? 29900 : tierName === 'pro' ? 9900 : 0,
+          priceYearly: tierName === 'premium' ? 299000 : tierName === 'pro' ? 99000 : 0,
+          features: getPlanFeatures(tierName),
+          isActive: true,
+          sortOrder: tierName === 'premium' ? 3 : tierName === 'pro' ? 2 : 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        if (data.subscription) {
+          setSubscription(data.subscription);
+        }
+      } else {
+        setCurrentPlan(DEFAULT_FREE_PLAN);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription:', error);
+      setCurrentPlan(DEFAULT_FREE_PLAN);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   // 초기 로드
