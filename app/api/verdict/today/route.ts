@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { jsonWithCache, errorResponse } from '@/lib/api-cache';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -108,11 +109,12 @@ export async function GET() {
       .single();
 
     if (error || !verdict) {
-      return NextResponse.json({
+      // 데이터 없음 - 짧은 캐시 (1분)
+      return jsonWithCache({
         success: true,
         verdict: null,
         message: '오늘의 추천이 아직 없습니다',
-      });
+      }, 'public-short');
     }
 
     // 각 AI별 Top5 데이터
@@ -140,7 +142,8 @@ export async function GET() {
     // 상세 합의 의견 생성
     const detailedSummary = generateDetailedSummary(top5, claudeTop5, geminiTop5, gptTop5, theme);
 
-    return NextResponse.json({
+    // 성공 - 5분 캐시 (오늘 추천은 자주 바뀌지 않음)
+    return jsonWithCache({
       success: true,
       verdict: {
         date: verdict.date,
@@ -152,13 +155,10 @@ export async function GET() {
         geminiTop5: geminiTop5,
         gptTop5: gptTop5,
       },
-    });
+    }, 'public-medium');
 
   } catch (error) {
     console.error('Today verdict error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch today verdict' },
-      { status: 500 }
-    );
+    return errorResponse('Failed to fetch today verdict', 500);
   }
 }

@@ -4,10 +4,10 @@
  * 구독 기능 활성화 여부
  * false: 모든 사용자가 모든 기능 무제한 이용 가능 (개발/테스트 모드)
  * true: 구독 티어에 따른 기능 제한 적용 (프로덕션 모드)
- * 
- * TODO: PortOne 연동 완료 후 true로 변경
+ *
+ * 환경변수로 제어 가능: NEXT_PUBLIC_SUBSCRIPTION_ENABLED=true
  */
-export const SUBSCRIPTION_ENABLED = false;
+export const SUBSCRIPTION_ENABLED = process.env.NEXT_PUBLIC_SUBSCRIPTION_ENABLED === 'true';
 
 export type SubscriptionTier = 'free' | 'pro' | 'premium';
 

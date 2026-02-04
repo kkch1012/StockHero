@@ -280,8 +280,9 @@ export function AIConsultation({ characterType, holdings = [], stockData, onClos
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-dark-800/50 transition-colors shrink-0"
+            aria-label="상담 닫기"
           >
-            <svg className="w-5 h-5 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -428,8 +429,9 @@ export function AIConsultation({ characterType, holdings = [], stockData, onClos
                 ? 'bg-brand-500 text-white hover:bg-brand-600'
                 : 'bg-dark-800 text-dark-600 cursor-not-allowed'
             }`}
+            aria-label="메시지 전송"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </button>
@@ -473,7 +475,12 @@ export function AIConsultationModal({ isOpen, onClose, characterType, holdings, 
         className="absolute inset-0 bg-dark-950/80 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-2xl h-[80vh] bg-dark-900 rounded-2xl border border-dark-800 overflow-hidden shadow-2xl">
+      <div
+        className="relative w-full max-w-2xl h-[80vh] bg-dark-900 rounded-2xl border border-dark-800 overflow-hidden shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI 상담"
+      >
         <AIConsultation
           characterType={characterType}
           holdings={holdings}

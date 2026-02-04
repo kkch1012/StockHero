@@ -108,7 +108,7 @@ function PostCard({ post, onLike, onComment }: {
         <div className="mb-4 grid grid-cols-2 gap-2">
           {post.image_urls.slice(0, 4).map((url, i) => (
             <div key={i} className="aspect-video rounded-xl bg-dark-800 overflow-hidden">
-              <img src={url} alt="" className="w-full h-full object-cover" />
+              <img src={url} alt={`게시글 이미지 ${i + 1}`} className="w-full h-full object-cover" />
             </div>
           ))}
         </div>

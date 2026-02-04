@@ -52,8 +52,8 @@ export function UpgradeModal({ isOpen, onClose, currentTier, highlightFeature }:
   ];
 
   const handleUpgrade = (tier: SubscriptionTier) => {
-    // TODO: 결제 페이지로 이동
-    window.location.href = `/pricing?plan=${tier}`;
+    // 구독 페이지로 이동하여 결제 진행
+    window.location.href = `/subscription?plan=${tier}`;
   };
 
   return (
@@ -65,11 +65,17 @@ export function UpgradeModal({ isOpen, onClose, currentTier, highlightFeature }:
       />
       
       {/* 모달 컨텐츠 */}
-      <div className="relative bg-dark-900 border border-dark-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div
+        className="relative bg-dark-900 border border-dark-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upgrade-modal-title"
+      >
         {/* 닫기 버튼 */}
-        <button 
+        <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 hover:bg-dark-800 rounded-lg transition-colors z-10"
+          aria-label="닫기"
         >
           <X className="w-5 h-5 text-dark-400" />
         </button>
@@ -79,7 +85,7 @@ export function UpgradeModal({ isOpen, onClose, currentTier, highlightFeature }:
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-brand-500/20 to-purple-500/20 mb-4">
             <Sparkles className="w-8 h-8 text-brand-400" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">🚀 더 많은 인사이트를 원하시나요?</h2>
+          <h2 id="upgrade-modal-title" className="text-2xl font-bold mb-2">🚀 더 많은 인사이트를 원하시나요?</h2>
           <p className="text-dark-400">
             구독을 업그레이드하고 AI가 선정한 모든 종목을 확인하세요
           </p>
