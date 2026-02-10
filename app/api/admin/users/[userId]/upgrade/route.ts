@@ -32,7 +32,7 @@ export async function POST(
     const body = await request.json();
     const { tier } = body as { tier: SubscriptionTier };
 
-    if (!tier || !['free', 'premium', 'pro', 'vip'].includes(tier)) {
+    if (!tier || !['free', 'basic', 'pro', 'vip'].includes(tier)) {
       return NextResponse.json({ error: 'Invalid tier' }, { status: 400 });
     }
 

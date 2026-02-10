@@ -6,7 +6,7 @@ import { SUBSCRIPTION_PLANS } from '@/lib/subscription/config';
 
 interface UpgradePromptProps {
   feature: string;
-  requiredTier: 'pro' | 'premium';
+  requiredTier: 'basic' | 'pro' | 'vip';
   currentUsage?: number;
   limit?: number;
 }
@@ -65,7 +65,7 @@ export function UpgradePrompt({
 
 // 잠금 오버레이 컴포넌트
 interface LockOverlayProps {
-  requiredTier: 'pro' | 'premium';
+  requiredTier: 'basic' | 'pro' | 'vip';
   children: React.ReactNode;
 }
 

@@ -112,16 +112,20 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       if (response.ok) {
         const data = await response.json();
         const tierName = data.tier || 'free';
+        const displayNames: Record<string, string> = { free: '무료', basic: '베이직', pro: '프로', vip: 'VIP' };
+        const monthlyPrices: Record<string, number> = { free: 0, basic: 9900, pro: 29900, vip: 79900 };
+        const yearlyPrices: Record<string, number> = { free: 0, basic: 94800, pro: 298800, vip: 718800 };
+        const sortOrders: Record<string, number> = { free: 0, basic: 1, pro: 2, vip: 3 };
 
         setCurrentPlan({
           id: `subscription-${tierName}`,
           name: tierName,
-          displayName: tierName === 'premium' ? '프리미엄' : tierName === 'pro' ? 'Pro' : '무료',
-          priceMonthly: tierName === 'premium' ? 29900 : tierName === 'pro' ? 9900 : 0,
-          priceYearly: tierName === 'premium' ? 299000 : tierName === 'pro' ? 99000 : 0,
+          displayName: displayNames[tierName] || '무료',
+          priceMonthly: monthlyPrices[tierName] || 0,
+          priceYearly: yearlyPrices[tierName] || 0,
           features: getPlanFeatures(tierName),
           isActive: true,
-          sortOrder: tierName === 'premium' ? 3 : tierName === 'pro' ? 2 : 1,
+          sortOrder: sortOrders[tierName] || 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -185,9 +189,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setUpgradeModal({ isOpen: false });
   }, []);
 
-  // 무료 모드에서는 항상 Pro
+  // 무료 모드에서는 항상 최고등급
   const isPro = FREE_MODE ? true : (currentPlan?.name === 'pro' || currentPlan?.name === 'vip');
-  const isPremium = FREE_MODE ? true : (currentPlan?.name === 'basic' || isPro);
+  const isPremium = FREE_MODE ? true : (currentPlan?.name !== 'free');
+  const isVip = FREE_MODE ? true : (currentPlan?.name === 'vip');
   
   const hasAccess = checkAccess;
 
@@ -207,6 +212,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     hasAccess,
     isPro,
     isPremium,
+    isVip,
   };
 
   return (
@@ -237,11 +243,11 @@ export function useSubscription(): SubscriptionContextValue {
       refreshSubscription: async () => {},
       checkAccess: () => FREE_MODE,
       hasAccess: () => FREE_MODE,
-      checkUsageLimit: () => ({ 
-        allowed: FREE_MODE, 
-        limit: FREE_MODE ? 9999 : 0, 
-        used: 0, 
-        remaining: FREE_MODE ? 9999 : 0 
+      checkUsageLimit: () => ({
+        allowed: FREE_MODE,
+        limit: FREE_MODE ? 9999 : 0,
+        used: 0,
+        remaining: FREE_MODE ? 9999 : 0
       }),
       incrementUsage: async () => FREE_MODE,
       upgradeModal: { isOpen: false },
@@ -249,6 +255,7 @@ export function useSubscription(): SubscriptionContextValue {
       closeUpgradeModal: () => {},
       isPro: FREE_MODE,
       isPremium: FREE_MODE,
+      isVip: FREE_MODE,
     };
   }
   

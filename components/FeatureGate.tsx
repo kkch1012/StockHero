@@ -8,7 +8,7 @@ import { FEATURE_LIMITS, SUBSCRIPTION_ENABLED, canAccessFeature, getFeatureLimit
 interface FeatureGateProps {
   feature: keyof typeof FEATURE_LIMITS;
   children: ReactNode;
-  requiredTier?: 'pro' | 'premium';
+  requiredTier?: 'basic' | 'pro' | 'vip';
   showUsage?: boolean;
   trackUsage?: boolean;
   fallback?: ReactNode;
@@ -53,16 +53,16 @@ export function FeatureGate({
   // 기능 접근 권한 확인
   const hasFeatureAccess = canAccessFeature(tier, feature);
   const featureLimit = getFeatureLimit(tier, feature);
-  const isPro = planName === 'pro' || planName === 'vip';
+  const tierOrder = ['free', 'basic', 'pro', 'vip'];
+  const currentTierIndex = tierOrder.indexOf(planName || 'free');
 
   // 티어 요구사항 확인
-  const meetsRequiredTier = !requiredTier || 
-    (requiredTier === 'pro' && isPro) || 
-    (requiredTier === 'premium' && (isPremium || isPro));
+  const meetsRequiredTier = !requiredTier ||
+    currentTierIndex >= tierOrder.indexOf(requiredTier);
 
   // 접근 불가 - 티어 부족
   if (!meetsRequiredTier || !hasFeatureAccess) {
-    const tierRequired = requiredTier || (isPro ? 'premium' : 'pro');
+    const tierRequired = requiredTier || (currentTierIndex >= 2 ? 'vip' : 'pro');
     
     if (fallback) {
       return <>{fallback}</>;
@@ -120,7 +120,7 @@ export function useFeatureGate(feature: keyof typeof FEATURE_LIMITS) {
       limit: -1,
       remaining: Infinity,
       use: async () => true,
-      tier: 'premium' as const,
+      tier: 'vip' as const,
       isPro: true,
       isPremium: true,
       needsUpgrade: false,
@@ -130,31 +130,22 @@ export function useFeatureGate(feature: keyof typeof FEATURE_LIMITS) {
 
   const hasFeatureAccess = canAccessFeature(tier, feature);
   const featureLimit = getFeatureLimit(tier, feature);
-  const isPro = planName === 'pro' || planName === 'vip';
+  const tierOrderArr = ['free', 'basic', 'pro', 'vip'];
+  const currentTierIdx = tierOrderArr.indexOf(planName || 'free');
+  const isPro = currentTierIdx >= 2; // pro or vip
 
   return {
-    // 접근 가능 여부
     canAccess: hasFeatureAccess,
-    
-    // 사용량 정보
     currentUsage: 0,
     limit: featureLimit,
     remaining: featureLimit === -1 ? Infinity : featureLimit,
-    
-    // 사용량 증가 (사용 전 호출) - 서버에서 처리
     use: async () => true,
-    
-    // 구독 정보
     tier: planName,
     isPro,
     isPremium,
-    
-    // 업그레이드 필요 여부
     needsUpgrade: !hasFeatureAccess,
-    
-    // 필요한 티어
-    requiredTier: !hasFeatureAccess 
-      ? (isPro ? 'premium' : 'pro') 
+    requiredTier: !hasFeatureAccess
+      ? (currentTierIdx >= 2 ? 'vip' : 'pro')
       : null,
   };
 }
