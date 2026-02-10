@@ -221,14 +221,14 @@ export default function SubscriptionPage() {
             >
               연간 결제
               <span className="bg-yellow-500 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                17% 할인
+                최대 25% 할인
               </span>
             </button>
           </div>
         </div>
 
         {/* 플랜 카드 */}
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 max-w-7xl mx-auto">
           {SUBSCRIPTION_PLANS.map((plan) => {
             const price = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
             const isCurrentPlan = plan.id === currentTier;

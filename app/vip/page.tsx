@@ -1,32 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Header } from '@/components';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useCurrentPlan } from '@/lib/subscription';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { 
-  CrownIcon, 
-  TrendingUpIcon, 
-  TrendingDownIcon, 
-  TargetIcon,
-  AlertTriangleIcon,
+import {
+  CrownIcon,
+  TrendingUpIcon,
   SparklesIcon,
-  ChevronRightIcon,
   MessageSquareIcon,
   RefreshCwIcon,
-  ClockIcon,
   SearchIcon,
   BarChart3Icon,
   LockIcon,
-  UsersIcon,
   FlameIcon,
-  StarIcon,
-  ArrowUpIcon,
   ZapIcon,
-  EyeIcon,
   CalendarIcon,
 } from 'lucide-react';
 import { SignalFeed } from '@/components/vip/SignalFeed';
@@ -174,99 +164,110 @@ function MissedProfitCalculator({ avgReturn }: { avgReturn: number }) {
   );
 }
 
-// 실시간 카운터 컴포넌트
-function LiveCounter() {
-  const [viewerCount, setViewerCount] = useState(0);
-  const [todayJoins, setTodayJoins] = useState(0);
-  
-  useEffect(() => {
-    // 랜덤 초기값 설정
-    setViewerCount(Math.floor(Math.random() * 200) + 300);
-    setTodayJoins(Math.floor(Math.random() * 30) + 15);
-    
-    // 주기적으로 변화
-    const interval = setInterval(() => {
-      setViewerCount(prev => prev + Math.floor(Math.random() * 10) - 4);
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
-  
+// VIP 배지 컴포넌트 (LiveCounter 대체)
+function VIPBadge() {
   return (
-    <div className="flex items-center gap-4 text-sm">
-      <div className="flex items-center gap-2 bg-red-500/20 px-3 py-1.5 rounded-full">
-        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-        <span className="text-red-400 font-medium">{viewerCount}명</span>
-        <span className="text-dark-500">접속 중</span>
-      </div>
-      <div className="flex items-center gap-2 bg-amber-500/20 px-3 py-1.5 rounded-full">
-        <UsersIcon className="w-4 h-4 text-amber-400" />
-        <span className="text-amber-400 font-medium">오늘 {todayJoins}명</span>
-        <span className="text-dark-500">VIP 가입</span>
-      </div>
+    <div className="flex items-center gap-2 bg-amber-500/20 px-3 py-1.5 rounded-full text-sm">
+      <CrownIcon className="w-4 h-4 text-amber-400" />
+      <span className="text-amber-400 font-medium">VIP</span>
+      <span className="text-dark-500">프리미엄 서비스</span>
     </div>
   );
 }
 
-// VIP 성공 후기 컴포넌트
-function VIPTestimonials() {
-  const testimonials = [
-    { 
-      name: '김**', 
-      profit: '+2,847,000원', 
-      period: '3개월', 
-      comment: '만장일치 종목만 따라 샀는데 진짜 대박...',
-      avatar: '🧑‍💼'
-    },
-    { 
-      name: '이**', 
-      profit: '+5,230,000원', 
-      period: '6개월', 
-      comment: 'VIP 가입 후 수익률이 확 달라졌어요',
-      avatar: '👨‍💻'
-    },
-    { 
-      name: '박**', 
-      profit: '+1,540,000원', 
-      period: '2개월', 
-      comment: '매일 아침 추천 확인하는 게 습관이 됐네요',
-      avatar: '👩‍🏫'
-    },
-  ];
-  
+// AI 추천 성과 통계 컴포넌트 (VIPTestimonials 대체)
+function AIPerformanceStats({ summary }: { summary: BacktestSummary | null }) {
+  if (!summary) {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-lg font-bold text-dark-100 flex items-center gap-2">
+          <BarChart3Icon className="w-5 h-5 text-amber-400" />
+          AI 추천 실제 성과
+        </h3>
+        <div className="bg-dark-800/50 rounded-xl p-6 text-center">
+          <p className="text-dark-500 text-sm">성과 데이터 로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <h3 className="text-lg font-bold text-dark-100 flex items-center gap-2">
-        <StarIcon className="w-5 h-5 text-amber-400 fill-amber-400" />
-        VIP 회원 수익 인증
+        <BarChart3Icon className="w-5 h-5 text-amber-400" />
+        AI 추천 실제 성과
       </h3>
-      <div className="grid gap-3">
-        {testimonials.map((t, i) => (
-          <div key={i} className="bg-dark-800/50 rounded-xl p-4 flex items-start gap-3">
-            <span className="text-2xl">{t.avatar}</span>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-dark-200">{t.name}</span>
-                <span className="text-xs text-dark-500">{t.period} 이용</span>
-              </div>
-              <p className="text-sm text-dark-400 mb-2">&ldquo;{t.comment}&rdquo;</p>
-              <p className="text-lg font-bold text-red-400">{t.profit}</p>
+      <div className="bg-dark-800/50 rounded-xl p-5 space-y-4">
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p className={`text-2xl font-bold ${summary.avgReturn >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+              {summary.avgReturn >= 0 ? '+' : ''}{summary.avgReturn.toFixed(1)}%
+            </p>
+            <p className="text-xs text-dark-500 mt-1">평균 수익률</p>
+          </div>
+          <div>
+            <p className={`text-2xl font-bold ${summary.winRate >= 50 ? 'text-emerald-400' : 'text-orange-400'}`}>
+              {summary.winRate}%
+            </p>
+            <p className="text-xs text-dark-500 mt-1">승률</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-amber-400">{summary.totalStocks}개</p>
+            <p className="text-xs text-dark-500 mt-1">추천 종목</p>
+          </div>
+        </div>
+
+        {summary.strategies && (
+          <div className="border-t border-dark-700 pt-3 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-dark-400">전체 추천 평균</span>
+              <span className={`font-medium ${summary.strategies.allStocks.avgReturn >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                {summary.strategies.allStocks.avgReturn >= 0 ? '+' : ''}{summary.strategies.allStocks.avgReturn.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-dark-400">만장일치 종목</span>
+              <span className={`font-medium ${summary.strategies.unanimousOnly.avgReturn >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                {summary.strategies.unanimousOnly.avgReturn >= 0 ? '+' : ''}{summary.strategies.unanimousOnly.avgReturn.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-dark-400">1위 종목</span>
+              <span className={`font-medium ${summary.strategies.top1Only.avgReturn >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                {summary.strategies.top1Only.avgReturn >= 0 ? '+' : ''}{summary.strategies.top1Only.avgReturn.toFixed(1)}%
+              </span>
             </div>
           </div>
-        ))}
+        )}
+
+        <p className="text-[10px] text-dark-600 border-t border-dark-700 pt-2">
+          * 백테스트 기반 과거 성과이며, 미래 수익을 보장하지 않습니다.
+        </p>
       </div>
     </div>
   );
 }
 
-// 어제 추천 → 오늘 수익 컴포넌트
-function YesterdayPerformance() {
-  const yesterdayPicks = [
-    { name: '하나금융지주', returnPercent: 2.34, isUnanimous: true },
-    { name: 'KB금융', returnPercent: 1.87, isUnanimous: true },
-    { name: '기아', returnPercent: -0.45, isUnanimous: false },
-  ];
-  
+// 어제 추천 → 오늘 수익 컴포넌트 (실제 데이터)
+interface YesterdayPick {
+  name: string;
+  returnPercent: number;
+  isUnanimous: boolean;
+}
+
+function YesterdayPerformance({ picks }: { picks: YesterdayPick[] }) {
+  if (!picks || picks.length === 0) {
+    return (
+      <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/30 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarIcon className="w-5 h-5 text-emerald-400" />
+          <h3 className="font-bold text-dark-100">어제 추천 → 오늘 수익</h3>
+        </div>
+        <p className="text-sm text-dark-500">어제 추천 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/30 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -274,7 +275,7 @@ function YesterdayPerformance() {
         <h3 className="font-bold text-dark-100">어제 추천 → 오늘 수익</h3>
       </div>
       <div className="space-y-2">
-        {yesterdayPicks.map((pick, i) => (
+        {picks.map((pick, i) => (
           <div key={i} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-dark-300 text-sm">{pick.name}</span>
@@ -324,6 +325,9 @@ function VIPPage() {
   const [startDate, setStartDate] = useState('2024-05-01');
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // 어제 추천 성과
+  const [yesterdayPicks, setYesterdayPicks] = useState<YesterdayPick[]>([]);
+
   // isVip은 useCurrentPlan에서 이미 계산됨 (무료 모드에서는 true)
   const isVIP = !planLoading && isVip;
   const isLoading = authLoading || planLoading;
@@ -357,6 +361,29 @@ function VIPPage() {
       }
     } catch (error) {
       console.error('Failed to fetch signals:', error);
+    }
+  };
+
+  // 어제 추천 성과 로드
+  const fetchYesterdayPerformance = async () => {
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateStr = yesterday.toISOString().split('T')[0];
+
+      const res = await fetch(`/api/backtest?startDate=${dateStr}&endDate=${dateStr}`);
+      const data = await res.json();
+
+      if (data.success && data.results) {
+        const picks: YesterdayPick[] = data.results.slice(0, 5).map((r: BacktestResult) => ({
+          name: r.name,
+          returnPercent: r.returnPercent,
+          isUnanimous: r.unanimousCount > 0,
+        }));
+        setYesterdayPicks(picks);
+      }
+    } catch (error) {
+      console.error('Failed to fetch yesterday performance:', error);
     }
   };
 
@@ -432,10 +459,12 @@ function VIPPage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await fetchVIPStocks();
-      await fetchSignals();
-      // 백테스트 자동 로드
-      await fetchBacktest();
+      await Promise.all([
+        fetchVIPStocks(),
+        fetchSignals(),
+        fetchBacktest(),
+        fetchYesterdayPerformance(),
+      ]);
       setLoading(false);
     };
 
@@ -455,11 +484,6 @@ function VIPPage() {
           <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px]" />
           
           <div className="relative container-app">
-            {/* 실시간 카운터 */}
-            <div className="flex justify-center mb-6">
-              <LiveCounter />
-            </div>
-            
             {/* 헤더 */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl mb-6 shadow-lg shadow-amber-500/30">
@@ -476,7 +500,7 @@ function VIPPage() {
 
             {/* 어제 추천 → 오늘 수익 */}
             <div className="max-w-md mx-auto mb-8">
-              <YesterdayPerformance />
+              <YesterdayPerformance picks={yesterdayPicks} />
             </div>
             
             {/* 블러 처리된 Top 5 미리보기 */}
@@ -578,9 +602,9 @@ function VIPPage() {
               </div>
             </div>
 
-            {/* VIP 성공 후기 */}
+            {/* AI 추천 성과 통계 */}
             <div className="max-w-xl mx-auto mb-8">
-              <VIPTestimonials />
+              <AIPerformanceStats summary={backtestSummary} />
             </div>
 
             {/* CTA 버튼 */}
@@ -622,12 +646,12 @@ function VIPPage() {
                 <p className="text-sm text-dark-500">프리미엄 투자 인사이트</p>
               </div>
             </div>
-            <LiveCounter />
+            <VIPBadge />
           </div>
 
           {/* 어제 추천 성과 */}
           <div className="mb-6">
-            <YesterdayPerformance />
+            <YesterdayPerformance picks={yesterdayPicks} />
           </div>
 
           {/* 탭 네비게이션 */}

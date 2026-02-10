@@ -3,14 +3,14 @@
     {
       "path": "/api/cron/daily-top5-debate",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/vip-stocks",
+      "schedule": "0 23 * * 0"
+    },
+    {
+      "path": "/api/cron/vip-signals",
+      "schedule": "0 0-6 * * 1-5"
     }
   ]
 }
-
-
-
-
-
-
-
-

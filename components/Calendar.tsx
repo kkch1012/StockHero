@@ -350,7 +350,7 @@ export function Calendar({ onDateSelect }: CalendarProps) {
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
-        currentTier={planName === 'vip' ? 'pro' : planName === 'basic' ? 'premium' : planName as 'free' | 'premium' | 'pro'}
+        currentTier={(planName || 'free') as 'free' | 'basic' | 'pro' | 'vip'}
         highlightFeature="history"
       />
     </div>

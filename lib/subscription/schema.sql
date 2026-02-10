@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   
   -- 구독 정보
-  tier VARCHAR(20) NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'premium')),
+  tier VARCHAR(20) NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'lite', 'basic', 'pro')),
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'expired', 'past_due')),
   
   -- 결제 주기
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS coupons (
   discount_value INTEGER NOT NULL,
   
   -- 적용 대상
-  applicable_plans TEXT[] DEFAULT ARRAY['pro', 'premium'],
+  applicable_plans TEXT[] DEFAULT ARRAY['lite', 'basic', 'pro'],
   
   -- 사용 제한
   max_uses INTEGER,
