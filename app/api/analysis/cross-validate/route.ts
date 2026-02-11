@@ -19,7 +19,7 @@ export const maxDuration = 30; // Vercel function timeout
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. 인증 확인
     const {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 // GET: 사용량 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const {
       data: { user },

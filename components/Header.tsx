@@ -11,6 +11,7 @@ import { CrownIcon, SparklesIcon, ZapIcon, Menu, X, ShieldCheckIcon } from 'luci
 
 const NAV_LINKS: { href: string; label: string; icon: string }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
+  { href: '/analysis', label: '분석', icon: '🔍' },
   { href: '/calendar', label: '달력', icon: '📅' },
   { href: '/backtest', label: '백테스트', icon: '📈' },
   { href: '/consult', label: 'AI 상담', icon: '💬' },
@@ -19,6 +20,7 @@ const NAV_LINKS: { href: string; label: string; icon: string }[] = [
 // 플랜별 배지 스타일
 const PLAN_BADGE_STYLES = {
   free: { label: '무료', bg: 'bg-dark-700', text: 'text-dark-300', border: '' },
+  lite: { label: 'LITE', bg: 'bg-cyan-500/20', text: 'text-cyan-400', border: 'border border-cyan-500/30' },
   basic: { label: 'BASIC', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border border-blue-500/30' },
   pro: { label: 'PRO', bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border border-purple-500/30' },
   vip: { label: 'VIP', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border border-amber-500/30 ring-1 ring-amber-500/20' },

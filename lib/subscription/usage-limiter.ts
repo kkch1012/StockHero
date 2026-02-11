@@ -81,7 +81,7 @@ export async function checkUsageLimit(
   tier: SubscriptionTier,
   featureKey: string
 ): Promise<UsageLimit> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 해당 등급의 제한 조회
   const limits = TIER_LIMITS[tier];
@@ -143,7 +143,7 @@ export async function incrementUsage(
   featureKey: string,
   apiCost?: number
 ): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -167,7 +167,7 @@ export async function incrementUsage(
  * 오늘 총 API 비용 조회
  */
 export async function getTodayApiCost(userId: string): Promise<ApiCost> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -228,7 +228,7 @@ function getNextResetTime(): Date {
  * 사용량 리포트 (관리자용)
  */
 export async function generateUsageReport(startDate: string, endDate: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: usages } = await supabase
     .from('feature_usage')

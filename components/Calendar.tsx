@@ -7,6 +7,7 @@ import { CHARACTERS } from '@/lib/characters';
 import type { CharacterType } from '@/lib/types';
 import { useCurrentPlan } from '@/lib/subscription/hooks';
 import { UpgradeModal } from './UpgradeModal';
+import type { SubscriptionTier } from '@/types/subscription';
 
 interface Top5Item {
   rank: number;
@@ -350,7 +351,7 @@ export function Calendar({ onDateSelect }: CalendarProps) {
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
-        currentTier={(planName || 'free') as 'free' | 'basic' | 'pro' | 'vip'}
+        currentTier={(planName || 'free') as SubscriptionTier}
         highlightFeature="history"
       />
     </div>

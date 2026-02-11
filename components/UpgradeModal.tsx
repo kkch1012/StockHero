@@ -13,24 +13,42 @@ interface UpgradeModalProps {
 export function UpgradeModal({ isOpen, onClose, currentTier, highlightFeature }: UpgradeModalProps) {
   if (!isOpen) return null;
 
-  const tierOrder: SubscriptionTier[] = ['free', 'basic', 'pro', 'vip'];
+  const tierOrder: SubscriptionTier[] = ['free', 'lite', 'basic', 'pro'];
   const currentTierIndex = tierOrder.indexOf(currentTier);
 
   const plans = [
+    {
+      tier: 'lite' as SubscriptionTier,
+      name: 'Lite',
+      price: TIER_PRICES.lite.monthly.toLocaleString(),
+      yearlyPrice: TIER_PRICES.lite.yearly.toLocaleString(),
+      icon: Zap,
+      color: 'from-cyan-500 to-blue-500',
+      borderColor: 'border-cyan-500/50',
+      bgColor: 'bg-cyan-500/5',
+      features: [
+        { text: '2개 AI 비교 분석', highlight: highlightFeature === 'analysis' },
+        { text: 'Top 3 종목 공개', highlight: highlightFeature === 'top5' },
+        { text: 'AI 상담 3회/일', highlight: highlightFeature === 'consultation' },
+        { text: '7일 이력 조회', highlight: highlightFeature === 'history' },
+      ],
+    },
     {
       tier: 'basic' as SubscriptionTier,
       name: 'Basic',
       price: TIER_PRICES.basic.monthly.toLocaleString(),
       yearlyPrice: TIER_PRICES.basic.yearly.toLocaleString(),
-      icon: Zap,
-      color: 'from-blue-500 to-cyan-500',
+      icon: Star,
+      color: 'from-blue-500 to-indigo-500',
       borderColor: 'border-blue-500/50',
       bgColor: 'bg-blue-500/5',
+      popular: true,
       features: [
-        { text: 'Top 5 종목 전체 공개', highlight: highlightFeature === 'top5' },
-        { text: 'AI별 개별 점수 확인', highlight: highlightFeature === 'scores' },
-        { text: '최근 30일 추천 이력', highlight: highlightFeature === 'history' },
-        { text: '광고 제거', highlight: false },
+        { text: '3 AI 교차검증', highlight: highlightFeature === 'analysis' || highlightFeature === 'cross_validation' },
+        { text: '합의 등급 (STRONG/MODERATE/CONFLICT)', highlight: highlightFeature === 'consensus' },
+        { text: 'Top 5 전체 · AI 상담 10회/일', highlight: highlightFeature === 'top5' },
+        { text: '30일 이력 + 백테스트', highlight: highlightFeature === 'backtest' },
+        { text: '실시간 알림 · 광고 제거', highlight: false },
       ],
     },
     {
@@ -38,35 +56,16 @@ export function UpgradeModal({ isOpen, onClose, currentTier, highlightFeature }:
       name: 'Pro',
       price: TIER_PRICES.pro.monthly.toLocaleString(),
       yearlyPrice: TIER_PRICES.pro.yearly.toLocaleString(),
-      icon: Star,
+      icon: Crown,
       color: 'from-brand-500 to-brand-600',
       borderColor: 'border-brand-500/50',
       bgColor: 'bg-brand-500/5',
-      popular: true,
       features: [
         { text: 'Basic 모든 기능 포함', highlight: false },
-        { text: 'AI 토론 전문 열람', highlight: highlightFeature === 'reasoning' },
-        { text: '실시간 매매 시그널', highlight: highlightFeature === 'signal' },
-        { text: '백테스트 성과 분석', highlight: highlightFeature === 'backtest' },
-        { text: 'AI 포트폴리오 진단', highlight: false },
-        { text: '실시간 푸시 알림', highlight: false },
-      ],
-    },
-    {
-      tier: 'vip' as SubscriptionTier,
-      name: 'VIP',
-      price: TIER_PRICES.vip.monthly.toLocaleString(),
-      yearlyPrice: TIER_PRICES.vip.yearly.toLocaleString(),
-      icon: Crown,
-      color: 'from-amber-500 to-orange-500',
-      borderColor: 'border-amber-500/50',
-      bgColor: 'bg-amber-500/5',
-      features: [
-        { text: 'Pro 모든 기능 포함', highlight: false },
-        { text: 'VIP 전용 종목 추천', highlight: highlightFeature === 'vip_stocks' },
-        { text: '커스텀 AI 심층 분석', highlight: false },
-        { text: 'AI 상담/토론 무제한', highlight: false },
-        { text: '우선 고객 지원', highlight: false },
+        { text: 'AI 상담 50회/일 (캡 적용)', highlight: highlightFeature === 'consultation' },
+        { text: '상세 시나리오 분석 + 목표가', highlight: highlightFeature === 'reasoning' },
+        { text: 'VIP 전용 종목 + 커스텀 분석', highlight: highlightFeature === 'vip_stocks' },
+        { text: '90일 백테스트 · 우선 지원', highlight: false },
       ],
     },
   ];
