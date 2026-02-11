@@ -3,7 +3,33 @@
  * 실행: npx tsx scripts/test-ai.ts
  */
 
-import { performTierBasedAnalysis } from '../lib/llm/tier-based-analysis';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+// .env.local 수동 로드 (Next.js 외부에서 실행하므로, import 전에 반드시 실행)
+const envPath = resolve(__dirname, '..', '.env.local');
+const envContent = readFileSync(envPath, 'utf-8');
+for (const line of envContent.split('\n')) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) continue;
+  const eqIdx = trimmed.indexOf('=');
+  if (eqIdx === -1) continue;
+  const key = trimmed.slice(0, eqIdx).trim();
+  const value = trimmed.slice(eqIdx + 1).trim();
+  if (!process.env[key]) {
+    process.env[key] = value;
+  }
+}
+
+// 환경변수 검증
+const requiredKeys = ['GOOGLE_AI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY'];
+for (const key of requiredKeys) {
+  if (!process.env[key] || process.env[key]!.startsWith('your-')) {
+    console.error(`❌ 환경변수 누락: ${key}`);
+    process.exit(1);
+  }
+}
+console.log('✅ 환경변수 로드 완료 (3개 AI 키 확인)');
 
 const TEST_STOCK = {
   symbol: '005930',
@@ -13,6 +39,9 @@ const TEST_STOCK = {
 };
 
 async function testTier(tier: 'free' | 'lite' | 'basic') {
+  // 동적 import (환경변수 로드 후)
+  const { performTierBasedAnalysis } = await import('../lib/llm/tier-based-analysis');
+
   const label = { free: 'Free (Gemini)', lite: 'Lite (Gemini+Claude)', basic: 'Basic (3 AI 교차검증)' }[tier];
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🧪 ${label} 테스트 시작`);
@@ -59,6 +88,7 @@ async function testTier(tier: 'free' | 'lite' | 'basic') {
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
     console.log(`❌ ${label} 실패 (${elapsed}초)`);
     console.log(`   에러: ${error.message}`);
+    if (error.status) console.log(`   HTTP 상태: ${error.status}`);
     return false;
   }
 }
@@ -80,6 +110,10 @@ async function main() {
   console.log(`   Free  (Gemini):     ${results.free ? '✅ PASS' : '❌ FAIL'}`);
   console.log(`   Lite  (2 AI 비교):  ${results.lite ? '✅ PASS' : '❌ FAIL'}`);
   console.log(`   Basic (3 AI 교차):  ${results.basic ? '✅ PASS' : '❌ FAIL'}`);
+
+  const allPassed = Object.values(results).every(Boolean);
+  console.log(`\n${allPassed ? '🎉 전체 테스트 통과!' : '⚠️ 일부 테스트 실패'}`);
+  process.exit(allPassed ? 0 : 1);
 }
 
 main().catch(console.error);
