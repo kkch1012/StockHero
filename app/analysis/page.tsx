@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components';
 import { StockSearchModal } from '@/components/StockSearchModal';
-import { UsageIndicator } from '@/components/analysis/UsageIndicator';
 import { useCurrentPlan } from '@/lib/subscription/hooks';
 import { Search, TrendingUp, Zap, Shield, BarChart3 } from 'lucide-react';
 import { CHARACTERS, getCharacterColors } from '@/lib/characters';
@@ -25,10 +24,51 @@ const POPULAR_STOCKS = [
   { symbol: '005490', name: 'POSCO홀딩스', sector: '철강' },
 ];
 
+interface StockPrice {
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
 export default function AnalysisPage() {
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { planName } = useCurrentPlan();
+  const [prices, setPrices] = useState<Record<string, StockPrice>>({});
+
+  // 인기 종목 실시간 가격 배치 조회
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const symbols = POPULAR_STOCKS.map((s) => s.symbol);
+        const res = await fetch('/api/stocks/price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbols }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            const parsed: Record<string, StockPrice> = {};
+            for (const [sym, info] of Object.entries(data.data)) {
+              const d = info as any;
+              if (d.price > 0) {
+                parsed[sym] = {
+                  price: d.price,
+                  change: d.change || 0,
+                  changePercent: d.changePercent || 0,
+                };
+              }
+            }
+            setPrices(parsed);
+          }
+        }
+      } catch {
+        // 실패 시 가격 없이 표시
+      }
+    };
+    fetchPrices();
+  }, []);
 
   const handleStockSelect = (stock: { symbol: string; name: string; sector: string }) => {
     setIsSearchOpen(false);
@@ -112,23 +152,54 @@ export default function AnalysisPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {POPULAR_STOCKS.map((stock) => (
-              <button
-                key={stock.symbol}
-                onClick={() => handleStockSelect(stock)}
-                className="p-3 sm:p-4 rounded-xl bg-dark-800/50 border border-dark-700 hover:border-brand-500/30 hover:bg-dark-800/80 transition-all text-left group"
-              >
-                <div className="text-sm sm:text-base font-medium text-dark-100 group-hover:text-white transition-colors">
-                  {stock.name}
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-dark-500">{stock.symbol}</span>
-                  <span className="text-2xs px-1.5 py-0.5 rounded bg-dark-700 text-dark-400">
-                    {stock.sector}
-                  </span>
-                </div>
-              </button>
-            ))}
+            {POPULAR_STOCKS.map((stock) => {
+              const p = prices[stock.symbol];
+              return (
+                <button
+                  key={stock.symbol}
+                  onClick={() => handleStockSelect(stock)}
+                  className="p-3 sm:p-4 rounded-xl bg-dark-800/50 border border-dark-700 hover:border-brand-500/30 hover:bg-dark-800/80 transition-all text-left group"
+                >
+                  <div className="text-sm sm:text-base font-medium text-dark-100 group-hover:text-white transition-colors">
+                    {stock.name}
+                  </div>
+                  {p ? (
+                    <div className="mt-1">
+                      <span className="text-sm font-medium text-dark-200">
+                        {p.price.toLocaleString()}원
+                      </span>
+                      <span
+                        className={`ml-1.5 text-xs font-medium ${
+                          p.changePercent > 0
+                            ? 'text-red-400'
+                            : p.changePercent < 0
+                              ? 'text-blue-400'
+                              : 'text-dark-400'
+                        }`}
+                      >
+                        {p.changePercent > 0 ? '+' : ''}
+                        {p.changePercent.toFixed(2)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-dark-500">{stock.symbol}</span>
+                      <span className="text-2xs px-1.5 py-0.5 rounded bg-dark-700 text-dark-400">
+                        {stock.sector}
+                      </span>
+                    </div>
+                  )}
+                  {p && (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-dark-500">{stock.symbol}</span>
+                      <span className="text-2xs px-1.5 py-0.5 rounded bg-dark-700 text-dark-400">
+                        {stock.sector}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </main>
