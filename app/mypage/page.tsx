@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import { CHARACTERS } from '@/lib/characters';
 import type { CharacterType } from '@/lib/llm/types';
+import { useCurrentPlan } from '@/lib/subscription/hooks';
+import { SUBSCRIPTION_PLANS } from '@/lib/subscription/config';
 
 // Loading fallback for Suspense
 function MyPageLoading() {
@@ -53,7 +55,7 @@ interface UserStats {
   most_discussed_stock: string | null;
 }
 
-type TabType = 'overview' | 'feed' | 'portfolio' | 'debates' | 'consultations' | 'watchlist' | 'settings';
+type TabType = 'overview' | 'feed' | 'portfolio' | 'debates' | 'consultations' | 'watchlist' | 'subscription' | 'settings';
 
 // Main page wrapper with Suspense
 export default function MyPage() {
@@ -75,6 +77,9 @@ function MyPageContent() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const { planName, displayName: planDisplayName, features: planFeatures } = useCurrentPlan();
+  const FREE_MODE = process.env.NEXT_PUBLIC_SUBSCRIPTION_ENABLED !== 'true';
 
   // Settings state
   const [preferredAnalyst, setPreferredAnalyst] = useState<CharacterType>('claude');
@@ -209,6 +214,7 @@ function MyPageContent() {
     { id: 'debates' as TabType, label: '토론 기록', icon: '💬' },
     { id: 'consultations' as TabType, label: '상담 기록', icon: '🤖' },
     { id: 'watchlist' as TabType, label: '관심 종목', icon: '⭐' },
+    { id: 'subscription' as TabType, label: '구독 관리', icon: '💎' },
     { id: 'settings' as TabType, label: '설정', icon: '⚙️' },
   ];
 
@@ -562,6 +568,62 @@ function MyPageContent() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Subscription Tab */}
+                {activeTab === 'subscription' && (
+                  <div className="max-w-xl space-y-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">구독 관리</h3>
+
+                    {/* 현재 플랜 */}
+                    <div className="p-6 rounded-xl bg-dark-800/50 border border-dark-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <div className="text-sm text-dark-400 mb-1">현재 플랜</div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl font-bold text-white">{planDisplayName}</span>
+                            <span className="px-3 py-1 rounded-full bg-brand-500/20 text-brand-400 text-sm font-medium">
+                              {planName.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* FREE_MODE 배너 */}
+                      {FREE_MODE && (
+                        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mb-4">
+                          <p className="text-emerald-400 text-sm font-medium">
+                            모든 기능 무료 체험 중
+                          </p>
+                          <p className="text-dark-400 text-xs mt-0.5">
+                            현재 모든 프리미엄 기능을 무료로 이용하실 수 있습니다.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 플랜 기능 목록 */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium text-dark-300 mb-2">포함된 기능</div>
+                        {(() => {
+                          const currentPlanInfo = SUBSCRIPTION_PLANS.find(p => p.id === planName) || SUBSCRIPTION_PLANS[SUBSCRIPTION_PLANS.length - 1];
+                          return currentPlanInfo.features.map((feature, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-sm">
+                              <span className="text-brand-400 mt-0.5">✓</span>
+                              <span className="text-dark-300">{feature}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* 플랜 변경 버튼 */}
+                    <Link
+                      href="/subscription"
+                      className="block w-full py-3 text-center rounded-xl bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors"
+                    >
+                      플랜 변경하기
+                    </Link>
                   </div>
                 )}
 

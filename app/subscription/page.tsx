@@ -13,6 +13,10 @@ import {
 
 // PortOne은 전역으로 이미 선언됨 (pricing 페이지에서)
 
+const PORTONE_READY = process.env.NEXT_PUBLIC_PORTONE_STORE_ID !== undefined
+  && process.env.NEXT_PUBLIC_PORTONE_STORE_ID !== ''
+  && process.env.NEXT_PUBLIC_PORTONE_STORE_ID !== 'your-store-id';
+
 export default function SubscriptionPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -101,6 +105,11 @@ export default function SubscriptionPage() {
       return;
     }
 
+    if (!PORTONE_READY) {
+      alert('결제 시스템이 아직 준비 중입니다. 현재 모든 기능을 무료로 이용하실 수 있습니다.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -175,11 +184,12 @@ export default function SubscriptionPage() {
   const getButtonText = (planId: SubscriptionTier) => {
     if (planId === currentTier) return '현재 플랜';
     if (planId === 'free') return '무료 사용 중';
+    if (!PORTONE_READY) return '준비 중';
     return '구독하기';
   };
 
   const getButtonDisabled = (planId: SubscriptionTier) => {
-    return planId === currentTier || planId === 'free' || isLoading;
+    return planId === currentTier || planId === 'free' || isLoading || !PORTONE_READY;
   };
 
   return (
@@ -188,6 +198,18 @@ export default function SubscriptionPage() {
       <Header />
       
       <div className="container-app pt-28 pb-12">
+        {/* PortOne 미설정 배너 */}
+        {!PORTONE_READY && (
+          <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+            <p className="text-amber-400 font-medium">
+              결제 시스템 준비 중
+            </p>
+            <p className="text-dark-400 text-sm mt-1">
+              현재 모든 기능을 무료로 이용하실 수 있습니다. 정식 결제 시스템은 곧 오픈됩니다.
+            </p>
+          </div>
+        )}
+
         {/* 헤더 섹션 */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-dark-100 mb-4">

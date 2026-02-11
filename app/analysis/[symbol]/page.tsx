@@ -184,7 +184,7 @@ export default function SymbolAnalysisPage() {
               AI 분석을 이용하려면 먼저 로그인해주세요.
             </p>
             <Link
-              href="/login"
+              href={`/login?redirect=/analysis/${symbol}`}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 text-white font-medium text-sm hover:bg-brand-600 transition-colors"
             >
               <LogIn className="w-4 h-4" />
