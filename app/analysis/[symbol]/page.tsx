@@ -5,10 +5,11 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Header } from '@/components';
 import { TierBasedResult } from '@/components/analysis/TierBasedResult';
 import { AnalysisLoading } from '@/components/analysis/AnalysisLoading';
-import { UsageIndicator } from '@/components/analysis/UsageIndicator';
-import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { useCurrentPlan } from '@/lib/subscription/hooks';
 import { TIER_NAMES } from '@/types/subscription';
 import type { SubscriptionTier } from '@/types/subscription';
+
+const SUBSCRIPTION_ENABLED = process.env.NEXT_PUBLIC_SUBSCRIPTION_ENABLED === 'true';
 
 // 티어별 AI 개수 (서버 모듈 import 없이 클라이언트에서 사용)
 const TIER_AI_COUNT: Record<SubscriptionTier, 1 | 2 | 3> = {
@@ -28,7 +29,7 @@ interface TierAnalysisResult {
   remaining?: number;
   limit?: number;
 }
-import { ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SymbolAnalysisPage() {
@@ -44,22 +45,45 @@ export default function SymbolAnalysisPage() {
 
   const [analysisResult, setAnalysisResult] = useState<TierAnalysisResult | null>(null);
   const [remainingQuota, setRemainingQuota] = useState<{ used: number; limit: number } | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
+
+  // 현재가 조회
+  const fetchCurrentPrice = useCallback(async (): Promise<number> => {
+    try {
+      const res = await fetch(`/api/stocks/price?symbol=${symbol}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.price > 0) {
+          setCurrentPrice(data.data.price);
+          return data.data.price;
+        }
+      }
+    } catch {
+      // 실패 시 fallback에 의존
+    }
+    return 0;
+  }, [symbol]);
 
   const runAnalysis = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setNeedsLogin(false);
     setAnalysisResult(null);
 
     try {
+      // 분석 전 현재가 조회
+      const price = await fetchCurrentPrice();
+
       const response = await fetch('/api/analysis/cross-validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbol,
           symbolName,
-          currentPrice: 0, // API will use fallback or fetch
+          currentPrice: price,
           sector,
         }),
       });
@@ -68,7 +92,8 @@ export default function SymbolAnalysisPage() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          setError('로그인이 필요합니다. 로그인 후 다시 시도해주세요.');
+          setNeedsLogin(true);
+          setError('로그인이 필요합니다.');
         } else if (response.status === 429) {
           setError(data.message || '일일 분석 한도를 초과했습니다. 내일 다시 시도해주세요.');
         } else {
@@ -93,7 +118,7 @@ export default function SymbolAnalysisPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [symbol, symbolName, sector]);
+  }, [symbol, symbolName, sector, fetchCurrentPrice]);
 
   useEffect(() => {
     runAnalysis();
@@ -118,6 +143,11 @@ export default function SymbolAnalysisPage() {
               </h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-dark-500">{symbol}</span>
+                {currentPrice > 0 && (
+                  <span className="text-xs font-medium text-dark-200">
+                    ₩{currentPrice.toLocaleString()}
+                  </span>
+                )}
                 {sector && (
                   <span className="text-2xs px-1.5 py-0.5 rounded bg-dark-700 text-dark-400">
                     {sector}
@@ -145,8 +175,26 @@ export default function SymbolAnalysisPage() {
         {/* Loading state */}
         {isLoading && <AnalysisLoading aiCount={aiCount} />}
 
-        {/* Error state */}
-        {error && (
+        {/* Login required (구독 모드에서 미로그인) */}
+        {needsLogin && (
+          <div className="p-6 rounded-xl bg-dark-800/50 border border-dark-700 text-center">
+            <LogIn className="w-8 h-8 text-brand-400 mx-auto mb-3" />
+            <p className="text-dark-200 font-medium mb-1">로그인이 필요합니다</p>
+            <p className="text-dark-400 text-sm mb-4">
+              AI 분석을 이용하려면 먼저 로그인해주세요.
+            </p>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 text-white font-medium text-sm hover:bg-brand-600 transition-colors"
+            >
+              <LogIn className="w-4 h-4" />
+              로그인하기
+            </Link>
+          </div>
+        )}
+
+        {/* Error state (로그인 필요가 아닌 일반 에러) */}
+        {error && !needsLogin && (
           <div className="p-6 rounded-xl bg-red-500/5 border border-red-500/20 text-center">
             <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
             <p className="text-dark-200 font-medium mb-1">분석 실패</p>
@@ -164,7 +212,7 @@ export default function SymbolAnalysisPage() {
         {!isLoading && !error && analysisResult && (
           <TierBasedResult
             analysisResult={analysisResult}
-            currentPrice={analysisResult.result?.analysis?.targetPrice || analysisResult.result?.priceAgreement?.consensus || 0}
+            currentPrice={currentPrice || analysisResult.result?.analysis?.targetPrice || analysisResult.result?.priceAgreement?.consensus || 0}
             symbolName={symbolName}
             remainingQuota={remainingQuota || undefined}
           />

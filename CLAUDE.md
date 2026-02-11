@@ -76,6 +76,7 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 - [x] 분석 페이지 2개 (홈 + 종목 상세)
 - [x] 분석 컴포넌트 9개 (티어별/교차검증/비교/단일 결과 등)
 - [x] 타입 안전성 개선 (createClient await, Calendar 타입 통일, Header/UpgradeModal)
+- [x] 분석 페이지 API 연동 (FREE_MODE 우회 + 실시간 가격 + 로그인 프롬프트)
 - [ ] Supabase 키 + 환경 변수 설정
 - [ ] API 통합 테스트
 - [ ] 프론트엔드 UI 연동 (구독 관리, 결제 페이지)
