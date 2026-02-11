@@ -14,9 +14,10 @@ export type SubscriptionTier = 'free' | 'lite' | 'basic' | 'pro';
 export interface PlanFeature {
   name: string;
   free: string | boolean | number;
+  lite: string | boolean | number;
   basic: string | boolean | number;
   pro: string | boolean | number;
-  vip: string | boolean | number;
+  vip?: string | boolean | number;
 }
 
 export interface SubscriptionPlan {

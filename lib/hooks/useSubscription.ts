@@ -84,7 +84,7 @@ export function useSubscription(): UseSubscriptionReturn {
   const canAccess = useCallback((feature: keyof TierLimits): boolean => {
     const value = limits[feature];
     if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') return value > 0 || value === -1;
+    if (typeof value === 'number') return value > 0 || (value as number) === -1;
     return true;
   }, [limits]);
 
@@ -110,7 +110,7 @@ export function isRankVisible(rank: number, tier: SubscriptionTier): boolean {
 // 날짜가 접근 가능한지 확인하는 헬퍼
 export function isDateAccessible(dateStr: string, tier: SubscriptionTier): boolean {
   const limits = TIER_LIMITS[tier];
-  if (limits.historyDays === -1) return true; // 무제한
+  if ((limits.historyDays as number) === -1) return true; // 무제한
   
   const today = new Date();
   today.setHours(0, 0, 0, 0);
