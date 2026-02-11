@@ -77,19 +77,39 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 - [x] 분석 컴포넌트 9개 (티어별/교차검증/비교/단일 결과 등)
 - [x] 타입 안전성 개선 (createClient await, Calendar 타입 통일, Header/UpgradeModal)
 - [x] 분석 페이지 API 연동 (FREE_MODE 우회 + 실시간 가격 + 로그인 프롬프트)
-- [ ] Supabase 키 + 환경 변수 설정
-- [ ] API 통합 테스트
-- [ ] 프론트엔드 UI 연동 (구독 관리, 결제 페이지)
+- [x] 프론트엔드 UI 연동 (로그인 페이지 + 쿠키 동기화 + 구독 관리 탭 + PortOne 미설정 대응)
+- [x] API 통합 테스트 (2026-02-11 통과)
+- [ ] 배포 (Vercel + 환경변수 + Google OAuth redirect URI)
 
-## 환경 변수 (.env.local)
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-GOOGLE_GEMINI_API_KEY=
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-```
+## 환경 변수 (.env.local) 상태
+
+### 설정 완료
+| 변수 | 상태 | 용도 |
+|------|------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | 설정됨 | Supabase 프로젝트 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 설정됨 | Supabase 익명 키 (클라이언트) |
+| `SUPABASE_SERVICE_ROLE_KEY` | 설정됨 | Supabase 서비스 키 (서버) |
+| `ANTHROPIC_API_KEY` | 설정됨 | Claude API |
+| `GOOGLE_AI_API_KEY` | 설정됨 | Gemini API |
+| `OPENAI_API_KEY` | 설정됨 | GPT API |
+| `NEXT_PUBLIC_SUBSCRIPTION_ENABLED` | `false` | 구독 기능 비활성 (FREE_MODE) |
+
+### 미설정 (placeholder)
+| 변수 | 필요 시점 | 용도 |
+|------|-----------|------|
+| `NEXT_PUBLIC_PORTONE_STORE_ID` | 결제 오픈 시 | PortOne 결제 (portone.io 가입 필요) |
+| `NEXT_PUBLIC_PORTONE_CHANNEL_KEY` | 결제 오픈 시 | PortOne 채널 키 |
+| `PORTONE_API_SECRET` | 결제 오픈 시 | PortOne 서버 시크릿 |
+| `PORTONE_WEBHOOK_SECRET` | 결제 오픈 시 | PortOne 웹훅 검증 |
+| `PORTONE_PG_MID` | 결제 오픈 시 | PG사 상점 ID |
+| `KIS_APP_KEY` | 실시간 시세 시 | 한국투자증권 KIS API |
+| `KIS_APP_SECRET` | 실시간 시세 시 | KIS API 시크릿 |
+| `KIS_ACCOUNT_NUMBER` | 실시간 시세 시 | KIS 계좌번호 |
+| `OPENROUTER_API_KEY` | 선택 | OpenRouter 통합 키 (미사용) |
+| `CRON_SECRET` | 배포 시 | Vercel Cron 인증 |
+| `ADMIN_SECRET` | 배포 시 | 관리자 API 인증 |
+
+> PortOne, KIS는 외부 서비스 가입 후 발급받아야 함. CRON_SECRET, ADMIN_SECRET은 배포 시 임의 생성.
 
 ## 개발 규칙
 - 한국어 커밋 메시지 사용
