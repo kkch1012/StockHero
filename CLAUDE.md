@@ -46,6 +46,11 @@ app/api/analysis/cross-validate/route.ts  # POST 교차검증 API
 lib/subscription/config.ts       # 구독 설정 (티어/가격/기능)
 lib/subscription/usage-limiter.ts # 사용량 제한
 types/subscription.ts            # 구독 타입 정의
+app/api/user/analysis-history/route.ts  # GET 분석 이력 API
+
+# 프론트엔드 - 공통
+components/Header.tsx             # 데스크톱 헤더 (7개 메뉴)
+components/BottomNav.tsx          # 모바일 하단 탭바
 
 # 프론트엔드 - 분석 페이지
 app/analysis/page.tsx             # AI 분석 홈 (종목 검색 + 인기 종목 그리드)
@@ -79,6 +84,10 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 - [x] 분석 페이지 API 연동 (FREE_MODE 우회 + 실시간 가격 + 로그인 프롬프트)
 - [x] 프론트엔드 UI 연동 (로그인 페이지 + 쿠키 동기화 + 구독 관리 탭 + PortOne 미설정 대응)
 - [x] API 통합 테스트 (2026-02-11 통과)
+- [x] 인증 시스템 (@supabase/ssr + 쿠키 세션 + middleware 토큰 리프레시)
+- [x] 네비게이션 재구성 (데스크톱 7메뉴 + 모바일 하단탭바 + 페이지 정리)
+- [x] 핵심 플로우 (분석 이력 저장 + 마이페이지 이력탭 + 비로그인 유도)
+- [ ] 미구현 페이지 (battle, heroes, themes, backtest)
 - [ ] 배포 (Vercel + 환경변수 + Google OAuth redirect URI)
 
 ## 환경 변수 (.env.local) 상태

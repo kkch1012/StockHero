@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
   try {
     // VIP 권한 체크
     const subInfo = await getSubscriptionInfo(request);
-    const isVIP = subInfo?.planName === 'vip';
+    const isVIP = subInfo?.planName === 'pro';
 
     // 이번 주 VIP 종목 조회
     const weekStart = getThisWeekMonday();
@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       // 관리자 권한으로 수동 생성 허용
       const subInfo = await getSubscriptionInfo(request);
-      if (subInfo?.planName !== 'vip') {
+      if (subInfo?.planName !== 'pro') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }

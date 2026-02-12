@@ -15,7 +15,7 @@ import {
 interface UpgradePromptProps {
   type?: 'inline' | 'modal' | 'banner' | 'toast';
   feature?: string;
-  recommendedPlan?: 'basic' | 'pro' | 'vip';
+  recommendedPlan?: 'basic' | 'pro';
   successStory?: {
     text: string;
     value: string;

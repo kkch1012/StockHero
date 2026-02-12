@@ -56,15 +56,15 @@ export const NOTIFICATION_PLAN_REQUIREMENTS: Record<NotificationType, PlanName> 
   MORNING_BRIEFING: 'basic',
   PRICE_SURGE: 'pro',
   PRICE_DROP: 'pro',
-  BUY_SIGNAL: 'vip',
-  SELL_SIGNAL: 'vip',
-  VIP_STOCK: 'vip',
+  BUY_SIGNAL: 'pro',
+  SELL_SIGNAL: 'pro',
+  VIP_STOCK: 'pro',
   SUBSCRIPTION: 'free',
   SYSTEM: 'free',
 };
 
 // 플랜 순서
-const PLAN_ORDER: PlanName[] = ['free', 'basic', 'pro', 'vip'];
+const PLAN_ORDER: PlanName[] = ['free', 'basic', 'pro'];
 
 /**
  * 플랜 레벨 비교
@@ -403,7 +403,7 @@ export async function sendBuySignal(
 ): Promise<{ success: number; failed: number }> {
   const upside = ((stock.targetPrice / stock.currentPrice - 1) * 100).toFixed(1);
   
-  return sendNotificationToPlans('vip', {
+  return sendNotificationToPlans('pro', {
     type: 'BUY_SIGNAL',
     title: `🟢 ${stock.name} 매수 시그널`,
     message: `AI가 ${stock.name}에 대한 매수 타이밍을 감지했습니다.\n\n현재가: ${stock.currentPrice.toLocaleString()}원\n목표가: ${stock.targetPrice.toLocaleString()}원 (+${upside}%)\n\n${stock.reason}`,
@@ -424,7 +424,7 @@ export async function sendSellSignal(
     reason: string;
   }
 ): Promise<{ success: number; failed: number }> {
-  return sendNotificationToPlans('vip', {
+  return sendNotificationToPlans('pro', {
     type: 'SELL_SIGNAL',
     title: `🔴 ${stock.name} 매도 시그널`,
     message: `AI가 ${stock.name}에 대한 매도 타이밍을 감지했습니다.\n\n현재가: ${stock.currentPrice.toLocaleString()}원\n수익률: ${stock.returnPercent > 0 ? '+' : ''}${stock.returnPercent.toFixed(1)}%\n\n${stock.reason}`,
@@ -443,7 +443,7 @@ export async function sendVIPStockAlert(
     targetReturn: number;
   }
 ): Promise<{ success: number; failed: number }> {
-  return sendNotificationToPlans('vip', {
+  return sendNotificationToPlans('pro', {
     type: 'VIP_STOCK',
     title: `👑 VIP 전용 종목 공개`,
     message: `새로운 VIP 전용 추천 종목이 있습니다.\n\n${stock.name}(${stock.symbol})\n예상 수익률: +${stock.targetReturn.toFixed(1)}%\n\n${stock.reason}`,

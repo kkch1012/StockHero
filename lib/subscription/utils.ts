@@ -9,6 +9,24 @@ import type { PlanFeatures, FeatureType, UsageLimitResult } from '@/types/subscr
  */
 export const PLAN_FEATURES: Record<string, PlanFeatures> = {
   free: {
+    dailyConsultationLimit: 0,
+    top5VisibleCount: 1,
+    showTargetPrice: false,
+    showTargetDate: false,
+    showRealTimeDebate: false,
+    dailyDebateLimit: 0,
+    alertsPerDay: 0,
+    backtestDays: 0,
+    portfolioStockLimit: 0,
+    dailyPortfolioAnalysis: 0,
+    hasExclusiveStocks: false,
+    hasRealTimeSignal: false,
+    hasPrioritySupport: false,
+    adFree: false,
+    reportDownload: 0,
+    description: 'AI 주식 분석 체험하기',
+  },
+  lite: {
     dailyConsultationLimit: 3,
     top5VisibleCount: 3,
     showTargetPrice: false,
@@ -17,14 +35,14 @@ export const PLAN_FEATURES: Record<string, PlanFeatures> = {
     dailyDebateLimit: 1,
     alertsPerDay: 0,
     backtestDays: 0,
-    portfolioStockLimit: 5,
-    dailyPortfolioAnalysis: 1,
-    hasVipStocks: false,
+    portfolioStockLimit: 0,
+    dailyPortfolioAnalysis: 0,
+    hasExclusiveStocks: false,
     hasRealTimeSignal: false,
     hasPrioritySupport: false,
-    adFree: false,
+    adFree: true,
     reportDownload: 0,
-    description: '기본 기능 무료 이용',
+    description: '2개 AI 비교 분석',
   },
   basic: {
     dailyConsultationLimit: 10,
@@ -37,12 +55,12 @@ export const PLAN_FEATURES: Record<string, PlanFeatures> = {
     backtestDays: 30,
     portfolioStockLimit: 10,
     dailyPortfolioAnalysis: 3,
-    hasVipStocks: false,
-    hasRealTimeSignal: false,
+    hasExclusiveStocks: false,
+    hasRealTimeSignal: true,
     hasPrioritySupport: false,
     adFree: true,
     reportDownload: 3,
-    description: '광고 없이 더 많은 AI 상담',
+    description: '3 AI 교차검증 (캐시카우)',
   },
   pro: {
     dailyConsultationLimit: 50,
@@ -55,30 +73,12 @@ export const PLAN_FEATURES: Record<string, PlanFeatures> = {
     backtestDays: 90,
     portfolioStockLimit: 30,
     dailyPortfolioAnalysis: 10,
-    hasVipStocks: false,
-    hasRealTimeSignal: true,
-    hasPrioritySupport: false,
-    adFree: true,
-    reportDownload: 10,
-    description: '실시간 알림 + 무제한에 가까운 사용',
-  },
-  vip: {
-    dailyConsultationLimit: -1,  // 무제한
-    top5VisibleCount: 5,
-    showTargetPrice: true,
-    showTargetDate: true,
-    showRealTimeDebate: true,
-    dailyDebateLimit: -1,  // 무제한
-    alertsPerDay: -1,  // 무제한
-    backtestDays: 365,
-    portfolioStockLimit: -1,  // 무제한
-    dailyPortfolioAnalysis: -1,  // 무제한
-    hasVipStocks: true,
+    hasExclusiveStocks: true,
     hasRealTimeSignal: true,
     hasPrioritySupport: true,
     adFree: true,
-    reportDownload: -1,  // 무제한
-    description: '모든 기능 무제한 + 우선 지원 + VIP 전용 추천',
+    reportDownload: 10,
+    description: '무제한 분석 + Pro 전용 종목',
   },
 };
 
@@ -87,9 +87,9 @@ export const PLAN_FEATURES: Record<string, PlanFeatures> = {
  */
 export const PLAN_PRICES = {
   free: { monthly: 0, yearly: 0 },
-  basic: { monthly: 9900, yearly: 94800 },
-  pro: { monthly: 29900, yearly: 298800 },
-  vip: { monthly: 79900, yearly: 718800 },
+  lite: { monthly: 4900, yearly: 47040 },
+  basic: { monthly: 14900, yearly: 143040 },
+  pro: { monthly: 39900, yearly: 383040 },
 } as const;
 
 /**
@@ -97,15 +97,15 @@ export const PLAN_PRICES = {
  */
 export const PLAN_DISPLAY_NAMES = {
   free: '무료',
+  lite: '라이트',
   basic: '베이직',
   pro: '프로',
-  vip: 'VIP',
 } as const;
 
 /**
  * 플랜 순서 (업그레이드 비교용)
  */
-export const PLAN_ORDER = ['free', 'basic', 'pro', 'vip'] as const;
+export const PLAN_ORDER = ['free', 'lite', 'basic', 'pro'] as const;
 
 /**
  * 플랜별 기능 설정 조회
@@ -133,8 +133,8 @@ export function checkFeatureAccess(userPlan: string, feature: FeatureType): bool
       return (features.backtestDays as number) > 0;
     case 'realtime_alerts':
       return (features.alertsPerDay as number) !== 0;
-    case 'vip_stocks':
-      return !!(features.hasVipStocks);
+    case 'exclusive_stocks':
+      return !!(features.hasExclusiveStocks);
     case 'realtime_signal':
       return !!(features.hasRealTimeSignal);
     case 'target_price':
@@ -246,7 +246,7 @@ export function getUpgradeMessage(feature: FeatureType): string {
     portfolio_analyses: '더 많은 포트폴리오 분석을 하려면 업그레이드하세요',
     backtest: '백테스트 기능을 이용하려면 업그레이드하세요',
     realtime_alerts: '실시간 알림을 받으려면 업그레이드하세요',
-    vip_stocks: 'VIP 전용 추천 종목을 보려면 VIP로 업그레이드하세요',
+    exclusive_stocks: 'Pro 전용 추천 종목을 보려면 Pro로 업그레이드하세요',
     realtime_signal: '실시간 매매 신호를 받으려면 업그레이드하세요',
     target_price: '목표가를 확인하려면 업그레이드하세요',
     target_date: '목표 날짜를 확인하려면 업그레이드하세요',
@@ -259,10 +259,9 @@ export function getUpgradeMessage(feature: FeatureType): string {
 /**
  * 추천 플랜 계산
  */
-export function getRecommendedPlan(feature: FeatureType): 'basic' | 'pro' | 'vip' {
+export function getRecommendedPlan(feature: FeatureType): 'basic' | 'pro' {
   const requiredPlan = getRequiredPlanForFeature(feature);
-  
-  if (requiredPlan === 'vip') return 'vip';
+
   if (requiredPlan === 'pro') return 'pro';
   return 'basic';
 }
@@ -277,7 +276,7 @@ export const FEATURE_ICONS: Record<string, string> = {
   portfolio_analyses: '📊',
   backtest: '📈',
   realtime_alerts: '🔔',
-  vip_stocks: '👑',
+  exclusive_stocks: '💎',
   realtime_signal: '⚡',
   target_price: '🎯',
   target_date: '📅',
@@ -296,7 +295,7 @@ export const FEATURE_NAMES: Record<string, string> = {
   portfolio_analyses: '포트폴리오 분석',
   backtest: '백테스트',
   realtime_alerts: '실시간 알림',
-  vip_stocks: 'VIP 전용 추천',
+  exclusive_stocks: 'Pro 전용 추천',
   realtime_signal: '실시간 매매 신호',
   target_price: '목표가',
   target_date: '목표 날짜',

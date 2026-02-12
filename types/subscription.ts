@@ -62,7 +62,7 @@ export const TIER_LIMITS = {
     alertDelay: 'realtime',   // 실시간
     aiChatDaily: 50,          // AI 채팅 50회/일 (캡 적용 ⚠️)
     debateRequestDaily: 20,   // 종목 토론 요청 20회/일
-    vipStocks: true,          // VIP 전용 종목
+    exclusiveStocks: true,    // Pro 전용 종목
     customAnalysis: true,     // 커스텀 심층 분석
   },
 } as const;
@@ -111,7 +111,7 @@ export type FeatureType =
   | 'backtest_full'
   | 'realtime_alerts'
   | 'realtime_debate'
-  | 'vip_stocks'
+  | 'exclusive_stocks'
   | 'realtime_signal'
   | 'target_price'
   | 'target_date'
@@ -200,7 +200,7 @@ export interface UpgradeModalState {
   isOpen: boolean;
   feature?: FeatureType;
   message?: string;
-  recommendedPlan?: 'basic' | 'pro' | 'vip';
+  recommendedPlan?: 'basic' | 'pro';
 }
 
 // 구독 컨텍스트 값
@@ -220,14 +220,13 @@ export interface SubscriptionContextValue {
   incrementUsage: (feature: FeatureType) => Promise<boolean>;
   isPro: boolean;
   isPremium: boolean;
-  isVip: boolean;
 }
 
 // 플랜 비교
 export interface PlanComparison {
   feature: string;
   free: string | boolean;
+  lite: string | boolean;
   basic: string | boolean;
   pro: string | boolean;
-  vip: string | boolean;
 }

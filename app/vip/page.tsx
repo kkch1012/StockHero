@@ -295,7 +295,7 @@ function YesterdayPerformance({ picks }: { picks: YesterdayPick[] }) {
 
 function VIPPage() {
   const { user, loading: authLoading } = useAuth();
-  const { plan: currentPlan, planName, isVip, isLoading: planLoading } = useCurrentPlan();
+  const { plan: currentPlan, planName, isPro, isLoading: planLoading } = useCurrentPlan();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -328,8 +328,8 @@ function VIPPage() {
   // 어제 추천 성과
   const [yesterdayPicks, setYesterdayPicks] = useState<YesterdayPick[]>([]);
 
-  // isVip은 useCurrentPlan에서 이미 계산됨 (무료 모드에서는 true)
-  const isVIP = !planLoading && isVip;
+  // VIP tier no longer exists; this page should show "access denied" for all users
+  const isVIP = false;
   const isLoading = authLoading || planLoading;
 
   // VIP 종목 로드

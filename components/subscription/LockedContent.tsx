@@ -5,7 +5,7 @@ import { useSubscription, useCurrentPlan, PLAN_DISPLAY_NAMES, isPlanHigherThan }
 
 interface LockedContentProps {
   children: ReactNode;
-  requiredPlan: 'basic' | 'pro' | 'vip';
+  requiredPlan: 'basic' | 'pro';
   blurIntensity?: 'light' | 'medium' | 'heavy';
   teaser?: string;
   teaserEmoji?: string;
@@ -37,7 +37,7 @@ export function LockedContent({
   
   // 실제로는 현재 플랜이 required 플랜 이상인지 체크
   const canAccess = (() => {
-    const planOrder = ['free', 'basic', 'pro', 'vip'];
+    const planOrder = ['free', 'lite', 'basic', 'pro'];
     const currentIndex = planOrder.indexOf(planName);
     const requiredIndex = planOrder.indexOf(requiredPlan);
     return currentIndex >= requiredIndex;
@@ -111,9 +111,8 @@ export function LockedContent({
 
         {/* 가격 안내 */}
         <p className="mt-3 text-dark-500 text-xs">
-          {requiredPlan === 'basic' && '월 9,900원부터'}
-          {requiredPlan === 'pro' && '월 29,900원부터'}
-          {requiredPlan === 'vip' && '월 79,900원부터'}
+          {requiredPlan === 'basic' && '월 14,900원부터'}
+          {requiredPlan === 'pro' && '월 39,900원부터'}
         </p>
       </div>
 

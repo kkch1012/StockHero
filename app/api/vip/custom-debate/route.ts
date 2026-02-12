@@ -197,10 +197,10 @@ export async function POST(request: NextRequest) {
     // VIP 권한 체크
     const subInfo = await getSubscriptionInfo(request);
     
-    if (subInfo?.planName !== 'vip') {
+    if (subInfo?.planName !== 'pro') {
       return NextResponse.json({
         success: false,
-        error: 'VIP 전용 기능입니다.',
+        error: 'Pro 전용 기능입니다.',
         upgradeUrl: '/pricing',
       }, { status: 403 });
     }
@@ -282,10 +282,10 @@ export async function GET(request: NextRequest) {
     // VIP 권한 체크
     const subInfo = await getSubscriptionInfo(request);
     
-    if (subInfo?.planName !== 'vip') {
+    if (subInfo?.planName !== 'pro') {
       return NextResponse.json({
         success: false,
-        error: 'VIP 전용 기능입니다.',
+        error: 'Pro 전용 기능입니다.',
         upgradeUrl: '/pricing',
       }, { status: 403 });
     }

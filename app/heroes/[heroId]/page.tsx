@@ -113,7 +113,7 @@ export default function HeroDetailPage() {
   const [showCharacterModal, setShowCharacterModal] = useState(false);
   
   // 구독 정보
-  const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
+  const { planName, isPremium, isPro, isLoading: planLoading } = useCurrentPlan();
   const { openUpgradeModal } = useSubscription();
   
   // 캐릭터 정보
@@ -123,7 +123,7 @@ export default function HeroDetailPage() {
   const blurredRanks = isPremium ? [] : [1, 2];
   // 베이직+는 목표가 표시, 프로+는 목표달성일 표시
   const showTargetPrice = planName !== 'free';
-  const showTargetDate = planName === 'pro' || planName === 'vip';
+  const showTargetDate = planName === 'pro' || isPro;
   
   const meta = HERO_META[heroId as keyof typeof HERO_META];
 
@@ -588,7 +588,7 @@ export default function HeroDetailPage() {
                         firstRecommendDate={data?.date || new Date().toISOString().split('T')[0]}
                         firstRecommendPrice={stock.currentPrice * 0.92} // 실제 데이터로 교체 필요
                         currentPrice={stock.currentPrice}
-                        isUnlocked={isVip}
+                        isUnlocked={isPro}
                         onUpgradeClick={() => openUpgradeModal('backtest', '백테스트 상세를 확인하려면 Pro 플랜이 필요합니다')}
                       />
                     </div>
