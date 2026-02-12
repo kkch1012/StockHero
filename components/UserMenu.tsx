@@ -25,7 +25,7 @@ export function UserMenu() {
 
   if (loading) {
     return (
-      <div className="w-8 h-8 rounded-full bg-dark-700 animate-pulse" />
+      <div className="w-10 h-10 rounded-full bg-dark-700 animate-pulse" />
     );
   }
 
@@ -33,9 +33,9 @@ export function UserMenu() {
     return (
       <button
         onClick={signInWithGoogle}
-        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white text-dark-900 font-medium text-xs sm:text-sm hover:bg-gray-100 transition-all duration-200 shadow-lg whitespace-nowrap shrink-0"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-dark-900 font-medium text-sm hover:bg-gray-100 transition-all duration-200 shadow-lg whitespace-nowrap shrink-0"
       >
-        <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -53,9 +53,7 @@ export function UserMenu() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        <span className="hidden sm:inline">Google</span>
-        <span className="sm:hidden">G</span>
-        <span className="hidden sm:inline">로그인</span>
+        <span>로그인</span>
       </button>
     );
   }
@@ -64,7 +62,7 @@ export function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 p-1 rounded-full hover:bg-dark-800 transition-colors"
+        className="flex items-center gap-2 p-1 rounded-full hover:bg-dark-800/60 transition-colors"
         aria-label="사용자 메뉴"
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -73,12 +71,12 @@ export function UserMenu() {
           <Image
             src={user.user_metadata.avatar_url}
             alt={user.user_metadata?.full_name || 'User'}
-            width={32}
-            height={32}
+            width={40}
+            height={40}
             className="rounded-full"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white font-medium text-sm">
+          <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold text-base">
             {user.email?.charAt(0).toUpperCase()}
           </div>
         )}
