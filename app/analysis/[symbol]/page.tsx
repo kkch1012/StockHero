@@ -6,6 +6,7 @@ import { Header } from '@/components';
 import { TierBasedResult } from '@/components/analysis/TierBasedResult';
 import { AnalysisLoading } from '@/components/analysis/AnalysisLoading';
 import { useCurrentPlan } from '@/lib/subscription/hooks';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { TIER_NAMES } from '@/types/subscription';
 import type { SubscriptionTier } from '@/types/subscription';
 
@@ -40,6 +41,7 @@ export default function SymbolAnalysisPage() {
   const sector = searchParams.get('sector') || '';
 
   const { planName } = useCurrentPlan();
+  const { user } = useAuth();
   const tier = (planName as SubscriptionTier) || 'free';
   const aiCount = TIER_AI_COUNT[tier] || 1;
 
@@ -216,6 +218,25 @@ export default function SymbolAnalysisPage() {
             symbolName={symbolName}
             remainingQuota={remainingQuota || undefined}
           />
+        )}
+
+        {/* 비로그인 사용자 배너 */}
+        {!isLoading && !error && analysisResult && !user && (
+          <div className="mt-6 p-4 rounded-xl bg-brand-500/5 border border-brand-500/20 text-center">
+            <p className="text-dark-200 text-sm font-medium mb-1">
+              로그인하면 분석 이력이 저장됩니다
+            </p>
+            <p className="text-dark-400 text-xs mb-3">
+              마이페이지에서 과거 분석 결과를 다시 확인할 수 있어요
+            </p>
+            <Link
+              href={`/login?redirect=/analysis/${symbol}`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 text-white font-medium text-sm hover:bg-brand-600 transition-colors"
+            >
+              <LogIn className="w-4 h-4" />
+              로그인하기
+            </Link>
+          </div>
         )}
 
         {/* Timestamp */}

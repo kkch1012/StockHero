@@ -11,10 +11,12 @@ import { CrownIcon, SparklesIcon, ZapIcon, Menu, X, ShieldCheckIcon } from 'luci
 
 const NAV_LINKS: { href: string; label: string; icon: string }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
-  { href: '/analysis', label: '분석', icon: '🔍' },
+  { href: '/analysis', label: 'AI분석', icon: '🔍' },
   { href: '/calendar', label: '달력', icon: '📅' },
+  { href: '/consult', label: 'AI상담', icon: '💬' },
+  { href: '/community', label: '커뮤니티', icon: '👥' },
+  { href: '/investment-style', label: '투자성향', icon: '🧬' },
   { href: '/backtest', label: '백테스트', icon: '📈' },
-  { href: '/consult', label: 'AI 상담', icon: '💬' },
 ];
 
 // 플랜별 배지 스타일

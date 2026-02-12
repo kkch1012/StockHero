@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { DisclaimerBar, Header, CharacterAvatar, MyPortfolioViewer, FeedList } from '@/components';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { supabase } from '@/lib/supabase/client';
+import { createBrowserClient } from '@/lib/supabase/client';
 import { CHARACTERS } from '@/lib/characters';
 import type { CharacterType } from '@/lib/llm/types';
 import { useCurrentPlan } from '@/lib/subscription/hooks';
@@ -55,7 +55,19 @@ interface UserStats {
   most_discussed_stock: string | null;
 }
 
-type TabType = 'overview' | 'feed' | 'portfolio' | 'debates' | 'consultations' | 'watchlist' | 'subscription' | 'settings';
+interface AnalysisHistoryItem {
+  id: string;
+  symbol_code: string;
+  symbol_name: string;
+  tier: string;
+  analysis_type: string;
+  result_summary: string | null;
+  used_ais: string[];
+  api_cost: number;
+  created_at: string;
+}
+
+type TabType = 'overview' | 'feed' | 'portfolio' | 'analysis' | 'debates' | 'consultations' | 'watchlist' | 'subscription' | 'settings';
 
 // Main page wrapper with Suspense
 export default function MyPage() {
@@ -75,6 +87,7 @@ function MyPageContent() {
   const [debateHistory, setDebateHistory] = useState<DebateHistory[]>([]);
   const [consultations, setConsultations] = useState<ConsultationHistory[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryItem[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -99,8 +112,9 @@ function MyPageContent() {
   }, [user]);
 
   const fetchUserData = async () => {
-    if (!user || !supabase) return;
+    if (!user) return;
     setLoading(true);
+    const supabase = createBrowserClient();
 
     try {
       // Fetch debate history
@@ -156,9 +170,22 @@ function MyPageContent() {
         setEmailDigest(prefsData.email_digest);
       }
 
+      // Fetch analysis history via API
+      let analysisData: AnalysisHistoryItem[] = [];
+      try {
+        const res = await fetch('/api/user/analysis-history');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) analysisData = json.data;
+        }
+      } catch {
+        // 이력 로딩 실패 무시
+      }
+
       setDebateHistory(debates || []);
       setConsultations(consults || []);
       setWatchlist(watchlistData || []);
+      setAnalysisHistory(analysisData);
       setStats(statsData);
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -168,7 +195,8 @@ function MyPageContent() {
   };
 
   const savePreferences = async () => {
-    if (!user || !supabase) return;
+    if (!user) return;
+    const supabase = createBrowserClient();
 
     try {
       await supabase
@@ -186,7 +214,8 @@ function MyPageContent() {
   };
 
   const removeFromWatchlist = async (id: string) => {
-    if (!user || !supabase) return;
+    if (!user) return;
+    const supabase = createBrowserClient();
 
     try {
       await supabase
@@ -209,6 +238,7 @@ function MyPageContent() {
 
   const tabs = [
     { id: 'overview' as TabType, label: '개요', icon: '📊' },
+    { id: 'analysis' as TabType, label: '분석 이력', icon: '🔍' },
     { id: 'feed' as TabType, label: '피드', icon: '📝' },
     { id: 'portfolio' as TabType, label: '내 포트폴리오', icon: '💼' },
     { id: 'debates' as TabType, label: '토론 기록', icon: '💬' },
@@ -387,6 +417,67 @@ function MyPageContent() {
                           <span className="text-amber-400">⭐</span>
                           <span className="text-white">{stats.most_discussed_stock}</span>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Analysis History Tab */}
+                {activeTab === 'analysis' && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">AI 분석 이력</h3>
+                    {analysisHistory.length === 0 ? (
+                      <div className="text-center py-12 text-dark-500">
+                        <div className="text-4xl mb-4">🔍</div>
+                        <p className="mb-4">아직 분석 이력이 없습니다.</p>
+                        <Link href="/analysis" className="btn-primary text-sm">
+                          AI 분석하러 가기
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {analysisHistory.map(item => {
+                          const gradeColors: Record<string, string> = {
+                            STRONG: 'text-emerald-400 bg-emerald-500/10',
+                            MODERATE: 'text-amber-400 bg-amber-500/10',
+                            CONFLICT: 'text-red-400 bg-red-500/10',
+                          };
+                          const gradeStyle = gradeColors[item.result_summary || ''] || 'text-dark-400 bg-dark-800/50';
+                          return (
+                            <Link
+                              key={item.id}
+                              href={`/analysis/${item.symbol_code}?name=${encodeURIComponent(item.symbol_name)}`}
+                              className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/30 hover:bg-dark-800/50 transition-colors group"
+                            >
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500/20 to-brand-600/20 flex items-center justify-center text-xl">
+                                🔍
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-white group-hover:text-brand-400 transition-colors">
+                                    {item.symbol_name}
+                                  </span>
+                                  <span className="text-xs text-dark-500">({item.symbol_code})</span>
+                                  {item.result_summary && (
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${gradeStyle}`}>
+                                      {item.result_summary}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1 text-xs text-dark-500">
+                                  <span>{item.used_ais?.length || 1} AI</span>
+                                  <span>|</span>
+                                  <span>{item.analysis_type}</span>
+                                  <span>|</span>
+                                  <span>API ₩{item.api_cost}</span>
+                                </div>
+                              </div>
+                              <div className="text-sm text-dark-500">
+                                {new Date(item.created_at).toLocaleDateString('ko-KR')}
+                              </div>
+                            </Link>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

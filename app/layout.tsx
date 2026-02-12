@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import { BottomNav } from '@/components/BottomNav';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -75,6 +76,7 @@ export default function RootLayout({
       <body className="bg-dark-950 text-dark-100 antialiased selection:bg-brand-500/30 font-sans">
         <Providers>
           {children}
+          <BottomNav />
         </Providers>
       </body>
     </html>

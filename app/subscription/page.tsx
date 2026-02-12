@@ -142,12 +142,12 @@ export default function SubscriptionPage() {
 
       const { paymentConfig, orderInfo } = await response.json();
 
-      if (!window.PortOne) {
+      if (!(window as any).PortOne) {
         throw new Error('PortOne SDK not loaded');
       }
 
       // 포트원 결제 요청
-      const result = await window.PortOne.requestPayment(paymentConfig);
+      const result = await (window as any).PortOne.requestPayment(paymentConfig);
 
       if (!result || result.code === 'FAILURE') {
         throw new Error(result?.message || '결제 요청 실패');
@@ -200,12 +200,13 @@ export default function SubscriptionPage() {
       <div className="container-app pt-28 pb-12">
         {/* PortOne 미설정 배너 */}
         {!PORTONE_READY && (
-          <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-            <p className="text-amber-400 font-medium">
-              결제 시스템 준비 중
+          <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-brand-500/10 border border-emerald-500/20 text-center">
+            <div className="text-3xl mb-2">🎉</div>
+            <p className="text-emerald-400 font-bold text-lg">
+              현재 모든 기능을 무료로 이용하실 수 있습니다
             </p>
-            <p className="text-dark-400 text-sm mt-1">
-              현재 모든 기능을 무료로 이용하실 수 있습니다. 정식 결제 시스템은 곧 오픈됩니다.
+            <p className="text-dark-400 text-sm mt-2 max-w-md mx-auto">
+              정식 결제 시스템 준비 중입니다. 준비가 완료될 때까지 3개 AI 교차검증 등 모든 프리미엄 기능이 무료로 제공됩니다.
             </p>
           </div>
         )}
