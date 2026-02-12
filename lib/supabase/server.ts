@@ -1,16 +1,45 @@
+import { createServerClient as createSSRServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// Server-side Supabase client with service role (for admin operations)
-export function createServerClient() {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    console.warn('Supabase server environment variables not configured');
-    return createSupabaseClient('https://placeholder.supabase.co', 'placeholder-key');
-  }
+/**
+ * 쿠키 기반 서버 클라이언트 (anon key + RLS 적용)
+ * - API Routes, Server Components에서 사용
+ * - 사용자 세션을 쿠키에서 자동으로 읽음
+ * - RLS가 적용되므로 사용자 데이터 접근에 안전
+ */
+export async function createClient() {
+  const cookieStore = await cookies();
+
+  return createSSRServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Server Component에서 호출 시 쿠키 설정 불가 - 무시
+          // middleware에서 세션 리프레시가 처리됨
+        }
+      },
+    },
+  });
+}
+
+/**
+ * 관리자 클라이언트 (service_role key, RLS 무시)
+ * - Cron jobs, admin 작업, DB 헬퍼 함수에서 사용
+ * - 사용자 인증과 무관한 서버 전용 작업
+ */
+export function createAdminClient(): SupabaseClient {
   return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -19,26 +48,17 @@ export function createServerClient() {
   });
 }
 
-// Admin client for database operations - lazy initialization
-let _supabaseAdmin: SupabaseClient | null = null;
+// Legacy exports for backwards compatibility
+// db.ts 등 기존 코드에서 사용
+let _adminInstance: SupabaseClient | null = null;
 
 export function getSupabaseAdmin(): SupabaseClient {
-  if (!_supabaseAdmin) {
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.warn('Supabase admin environment variables not configured');
-      return createSupabaseClient('https://placeholder.supabase.co', 'placeholder-key');
-    }
-    _supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+  if (!_adminInstance) {
+    _adminInstance = createAdminClient();
   }
-  return _supabaseAdmin;
+  return _adminInstance;
 }
 
-// Legacy export for backwards compatibility
 export const supabaseAdmin = {
   from: (table: string) => getSupabaseAdmin().from(table),
   auth: {
@@ -51,58 +71,6 @@ export const supabaseAdmin = {
   rpc: (fn: string, params?: any) => getSupabaseAdmin().rpc(fn, params),
 };
 
-// Async client for API routes - handles user authentication via cookies
-export async function createClient() {
-  const cookieStore = await cookies();
-  
-  // Get access token from cookies
-  const accessToken = cookieStore.get('sb-access-token')?.value;
-  const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-  // Create client with service key but set user session
-  const supabase = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-    global: {
-      headers: accessToken ? {
-        Authorization: `Bearer ${accessToken}`,
-      } : {},
-    },
-  });
-
-  // If we have tokens, try to set the session
-  if (accessToken && refreshToken) {
-    await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-  }
-
-  return supabase;
-}
-
-// Alternative: createClient using anon key for user-scoped RLS
-export async function createAnonClient() {
-  const cookieStore = await cookies();
-  
-  const accessToken = cookieStore.get('sb-access-token')?.value;
-  const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-  const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  if (accessToken && refreshToken) {
-    await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-  }
-
-  return supabase;
-}
+// Legacy alias
+export const createServerClient = createClient;
+export const createAnonClient = createClient;

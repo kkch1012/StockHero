@@ -318,3 +318,15 @@
 .animate-countdown {
   animation: countdown-pulse 1s ease-in-out infinite;
 }
+
+/* Mobile bottom nav safe area */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Bottom nav 표시될 때 페이지 하단 여백 (모바일) */
+@media (max-width: 1023px) {
+  body {
+    padding-bottom: 64px;
+  }
+}

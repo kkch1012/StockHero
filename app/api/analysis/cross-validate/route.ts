@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { performTierBasedAnalysis } from '@/lib/llm/tier-based-analysis';
 import { checkUsageLimit, incrementUsage } from '@/lib/subscription/usage-limiter';
 import { SUBSCRIPTION_ENABLED } from '@/lib/subscription/config';
@@ -97,6 +97,26 @@ export async function POST(request: NextRequest) {
     if (SUBSCRIPTION_ENABLED && userId !== 'anonymous') {
       const featureKey = tier === 'free' ? 'analysis_free' : 'cross_validation';
       await incrementUsage(userId, featureKey, result.apiCost);
+    }
+
+    // 분석 이력 저장 (로그인된 사용자만)
+    if (userId !== 'anonymous') {
+      try {
+        const admin = createAdminClient();
+        await admin.from('analysis_history').insert({
+          user_id: userId,
+          symbol_code: symbol,
+          symbol_name: symbolName,
+          tier,
+          analysis_type: result.analysisType,
+          result_summary: result.result?.consensus?.grade || result.result?.direction || null,
+          used_ais: result.usedAIs,
+          api_cost: result.apiCost,
+        });
+      } catch (historyError) {
+        // 이력 저장 실패해도 분석 결과는 반환
+        console.warn('[Cross-Validate API] Failed to save history:', historyError);
+      }
     }
 
     // 응답

@@ -1,6 +1,7 @@
-import { createServerClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -8,24 +9,29 @@ export async function GET(request: NextRequest) {
   const redirect = requestUrl.searchParams.get('redirect') || '/';
 
   if (code) {
-    const supabase = createServerClient();
-    const { data } = await supabase.auth.exchangeCodeForSession(code);
+    const cookieStore = await cookies();
 
-    // 쿠키 설정: 클라이언트 AuthContext의 onAuthStateChange도 설정하지만,
-    // OAuth 콜백은 서버에서 리다이렉트되므로 여기서도 설정
-    if (data?.session) {
-      const response = NextResponse.redirect(new URL(redirect, requestUrl.origin));
-      response.cookies.set('sb-access-token', data.session.access_token, {
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7,
-        sameSite: 'lax',
-      });
-      response.cookies.set('sb-refresh-token', data.session.refresh_token, {
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7,
-        sameSite: 'lax',
-      });
-      return response;
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
+
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      return NextResponse.redirect(new URL(redirect, requestUrl.origin));
     }
   }
 
