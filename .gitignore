@@ -41,6 +41,10 @@ prisma/migrations/*
 .idea
 .vscode
 
+# Local deploy docs (contain API keys)
+DEPLOY.md
+DEPLOYMENT_CHECKLIST.md
+
 
 
 
