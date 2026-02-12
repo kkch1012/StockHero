@@ -9,14 +9,15 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { isAdmin } from '@/lib/admin/config';
 import { CrownIcon, SparklesIcon, ZapIcon, Menu, X, ShieldCheckIcon } from 'lucide-react';
 
-const NAV_LINKS: { href: string; label: string; icon: string }[] = [
+const NAV_LINKS: { href: string; label: string; icon: string; pro?: boolean }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
   { href: '/analysis', label: 'AI분석', icon: '🔍' },
   { href: '/calendar', label: '달력', icon: '📅' },
   { href: '/consult', label: 'AI상담', icon: '💬' },
   { href: '/community', label: '커뮤니티', icon: '👥' },
   { href: '/investment-style', label: '투자성향', icon: '🧬' },
-  { href: '/backtest', label: '백테스트', icon: '📈' },
+  { href: '/portfolio', label: '포트폴리오', icon: '💼', pro: true },
+  { href: '/backtest', label: '백테스트', icon: '📈', pro: true },
 ];
 
 // 플랜별 배지 스타일
@@ -74,6 +75,11 @@ export function Header() {
                 >
                   <span className="text-base">{link.icon}</span>
                   <span>{link.label}</span>
+                  {link.pro && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                      PRO
+                    </span>
+                  )}
                 </Link>
               ))}
               
@@ -155,6 +161,11 @@ export function Header() {
                   >
                     <span className="text-base">{link.icon}</span>
                     <span>{link.label}</span>
+                    {link.pro && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                        PRO
+                      </span>
+                    )}
                   </Link>
                 ))}
                 
