@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserMenu } from './UserMenu';
-import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
+import { useCurrentPlan } from '@/lib/subscription/hooks';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { isAdmin } from '@/lib/admin/config';
 import { SparklesIcon, Menu, X, ShieldCheckIcon } from 'lucide-react';
@@ -32,12 +32,12 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
-  
+
   // 관리자 여부 확인
   const userIsAdmin = isAdmin(user?.email);
-  
+
   // 구독 정보
-  const { planName, isPremium, isLoading: planLoading } = useCurrentPlan();
+  const { planName, isLoading: planLoading } = useCurrentPlan();
   const planBadge = PLAN_BADGE_STYLES[planName as keyof typeof PLAN_BADGE_STYLES] || PLAN_BADGE_STYLES.free;
 
   const isActive = (href: string) => {
@@ -47,76 +47,73 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      <div className="container-app py-3">
-        <nav className="glass rounded-2xl px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3">
+        <nav className="glass rounded-2xl px-3 sm:px-4 lg:px-5 py-2.5">
           <div className="flex items-center justify-between gap-2">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group shrink-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
-                <span className="text-white font-bold text-sm sm:text-base">S</span>
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                <span className="text-white font-bold text-sm">S</span>
               </div>
-              <span className="font-bold text-dark-50 group-hover:text-white transition-colors text-base sm:text-lg hidden sm:block whitespace-nowrap">
+              <span className="font-bold text-dark-50 group-hover:text-white transition-colors hidden sm:block whitespace-nowrap">
                 StockHero
               </span>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-1 xl:gap-2">
+            {/* Desktop Navigation - 텍스트만, 아이콘 제거로 공간 확보 */}
+            <div className="hidden lg:flex items-center gap-0.5 xl:gap-1">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 xl:px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-2.5 xl:px-3 py-1.5 text-[13px] font-medium rounded-lg transition-all flex items-center gap-1 whitespace-nowrap ${
                     isActive(link.href)
-                      ? 'text-white bg-brand-500/20 border border-brand-500/30'
-                      : 'text-dark-300 hover:text-white hover:bg-dark-800/60'
+                      ? 'text-white bg-brand-500/20'
+                      : 'text-dark-400 hover:text-white hover:bg-dark-800/60'
                   }`}
                 >
-                  <span className="text-base">{link.icon}</span>
                   <span>{link.label}</span>
                   {link.pro && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                    <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-purple-500/20 text-purple-400">
                       PRO
                     </span>
                   )}
                 </Link>
               ))}
 
-
               {/* 관리자 메뉴 */}
               {userIsAdmin && (
                 <Link
                   href="/admin"
-                  className={`px-3 xl:px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-2.5 py-1.5 text-[13px] font-medium rounded-lg transition-all flex items-center gap-1 whitespace-nowrap ${
                     isActive('/admin')
-                      ? 'text-red-400 bg-red-500/20 border border-red-500/30'
+                      ? 'text-red-400 bg-red-500/20'
                       : 'text-red-400/70 hover:text-red-400 hover:bg-red-500/10'
                   }`}
                 >
-                  <ShieldCheckIcon className="w-4 h-4" />
+                  <ShieldCheckIcon className="w-3.5 h-3.5" />
                   <span>관리자</span>
                 </Link>
               )}
-              
-              <div className="ml-2 xl:ml-4 pl-2 xl:pl-4 border-l border-dark-700 flex items-center gap-2 xl:gap-3">
-                {/* 플랜 배지 (유료 플랜만 표시) */}
-                {!planLoading && planName !== 'free' && (
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
-                    {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
-                    {planBadge.label}
-                  </div>
-                )}
-                
-                <UserMenu />
-              </div>
             </div>
 
-            {/* Mobile/Tablet Menu Button & User Menu */}
-            <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
+            {/* Right side - 프로필 항상 표시 */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* 플랜 배지 (유료 플랜만, 데스크톱만) */}
+              {!planLoading && planName !== 'free' && (
+                <div className={`hidden lg:flex px-2 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} items-center gap-1 whitespace-nowrap`}>
+                  {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
+                  {planBadge.label}
+                </div>
+              )}
+
+              {/* 프로필 (항상 표시) */}
               <UserMenu />
+
+              {/* 모바일 햄버거 */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 text-dark-300 hover:text-white hover:bg-dark-800/60 rounded-xl transition-all"
+                className="lg:hidden p-2 text-dark-300 hover:text-white hover:bg-dark-800/60 rounded-xl transition-all"
                 aria-label="메뉴 열기"
               >
                 {isMobileMenuOpen ? (
@@ -143,7 +140,7 @@ export function Header() {
                         : 'text-dark-300 hover:text-white hover:bg-dark-800/60 border border-dark-800/50'
                     }`}
                   >
-                    <span className="text-base">{link.icon}</span>
+                    <span>{link.icon}</span>
                     <span>{link.label}</span>
                     {link.pro && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
@@ -152,7 +149,7 @@ export function Header() {
                     )}
                   </Link>
                 ))}
-                
+
                 {/* 관리자 메뉴 (관리자만) */}
                 {userIsAdmin && (
                   <Link
@@ -169,8 +166,8 @@ export function Header() {
                   </Link>
                 )}
               </div>
-              
-              {/* 모바일 플랜 배지 (유료 플랜만 표시) */}
+
+              {/* 모바일 플랜 배지 (유료 플랜만) */}
               {!planLoading && planName !== 'free' && (
                 <div className="mt-3 flex justify-center">
                   <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
