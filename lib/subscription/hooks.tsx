@@ -189,10 +189,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setUpgradeModal({ isOpen: false });
   }, []);
 
-  // 무료 모드에서는 항상 최고등급
+  // 무료 모드에서는 기능 접근만 허용, UI는 무료로 표시
   const isPro = FREE_MODE ? true : (currentPlan?.name === 'pro' || currentPlan?.name === 'vip');
   const isPremium = FREE_MODE ? true : (currentPlan?.name !== 'free');
-  const isVip = FREE_MODE ? true : (currentPlan?.name === 'vip');
+  const isVip = FREE_MODE ? false : (currentPlan?.name === 'vip');
   
   const hasAccess = checkAccess;
 
@@ -255,7 +255,7 @@ export function useSubscription(): SubscriptionContextValue {
       closeUpgradeModal: () => {},
       isPro: FREE_MODE,
       isPremium: FREE_MODE,
-      isVip: FREE_MODE,
+      isVip: false,
     };
   }
   
@@ -353,12 +353,12 @@ export function useCurrentPlan(): {
 } {
   const { currentPlan, isLoading } = useSubscription();
   
-  // 무료 모드에서는 Pro로 표시
-  const planName = FREE_MODE ? 'pro' : (currentPlan?.name || 'free');
-  const displayName = FREE_MODE ? 'Pro (무료)' : (PLAN_DISPLAY_NAMES[planName as keyof typeof PLAN_DISPLAY_NAMES] || '무료');
+  // 무료 모드에서는 기능은 Pro 수준이지만 UI는 무료로 표시
+  const planName = FREE_MODE ? 'free' : (currentPlan?.name || 'free');
+  const displayName = FREE_MODE ? '무료' : (PLAN_DISPLAY_NAMES[planName as keyof typeof PLAN_DISPLAY_NAMES] || '무료');
   const features = getPlanFeatures(FREE_MODE ? 'pro' : planName);
   const isPremium = FREE_MODE ? true : (planName !== 'free');
-  const isVip = FREE_MODE ? true : (planName === 'vip');
+  const isVip = FREE_MODE ? false : (planName === 'vip');
   
   return {
     plan: currentPlan,
