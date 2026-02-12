@@ -130,7 +130,7 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 - [x] 테마분석 (8개 테마 + AI 히어로별 분석 API)
 - [x] 백테스트 (기간별 성과 + 전략 비교 + 수익률 계산 API)
 - [x] VIP 페이지 정리 (폐지된 VIP 프론트엔드 삭제, Pro용 API 유지)
-- [ ] 배포 (Vercel + 환경변수 + Google OAuth redirect URI)
+- [x] 배포 (Vercel + GitHub 레포 연결 완료, 환경변수 + Google OAuth redirect URI는 웹 콘솔 설정)
 
 ## 환경 변수 (.env.local) 상태
 
