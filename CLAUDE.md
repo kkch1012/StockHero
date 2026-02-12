@@ -162,6 +162,23 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 
 > PortOne, KIS는 외부 서비스 가입 후 발급받아야 함. CRON_SECRET, ADMIN_SECRET은 배포 시 임의 생성.
 
+## TODO (2026-02-13)
+
+### 1. Cron OpenRouter 제거 → 직접 API 호출로 수정
+- `app/api/cron/daily-top5-debate/route.ts`: OpenRouter(`callOpenRouter`) → Anthropic/Google/OpenAI SDK 직접 호출
+- `app/api/cron/vip-stocks/route.ts`, `vip-signals/route.ts`: 동일하게 OpenRouter 의존 있는지 확인 후 수정
+- `OPENROUTER_API_KEY` 환경변수 완전 제거 (코드 + CLAUDE.md)
+
+### 2. CRON_SECRET 설정 + Cron 트리거
+- Vercel 대시보드에서 `CRON_SECRET` 환경변수 추가 (랜덤 문자열)
+- 수동 트리거로 `daily-top5-debate` 실행 → `verdicts` 테이블에 데이터 생성 확인
+- 홈페이지(`/`)에 오늘의 Top 5 표시되는지 확인
+
+### 3. Supabase `verdicts` 테이블 확인
+- 테이블 존재 여부, 컬럼 구조 (top5, claude_top5, gemini_top5, gpt_top5, debate_log 등)
+- `predictions` 테이블도 확인
+- 필요 시 마이그레이션 추가
+
 ## 개발 규칙
 - 한국어 커밋 메시지 사용
 - Tailwind CSS 유틸리티 클래스 우선
