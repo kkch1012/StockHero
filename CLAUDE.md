@@ -39,7 +39,7 @@
 
 ## 핵심 파일 구조
 ```
-# 백엔드
+# 백엔드 - 공통
 lib/llm/cross-validation.ts      # 3 AI 병렬 교차검증 엔진
 lib/llm/tier-based-analysis.ts   # 티어별 분석 라우팅 (1/2/3 AI)
 app/api/analysis/cross-validate/route.ts  # POST 교차검증 API
@@ -48,6 +48,30 @@ lib/subscription/usage-limiter.ts # 사용량 제한
 types/subscription.ts            # 구독 타입 정의
 app/api/user/analysis-history/route.ts  # GET 분석 이력 API
 
+# 백엔드 - 종목배틀
+app/api/debate/start/route.ts    # 토론 시작 (143줄)
+app/api/debate/stream/route.ts   # SSE 스트리밍 (199줄)
+app/api/debate/next/route.ts     # 다음 라운드 (134줄)
+app/api/debate/history/route.ts  # 토론 이력 (136줄)
+
+# 백엔드 - 투자고수
+app/api/heroes/[heroId]/top5/route.ts     # 한국 Top 5 추천 (684줄)
+app/api/heroes/[heroId]/us-top5/route.ts  # 미국 Top 5 추천 (333줄)
+
+# 백엔드 - 테마분석
+app/api/themes/route.ts                    # 테마 목록 (31줄)
+app/api/themes/[themeId]/analyze/route.ts  # 테마별 AI 분석 (293줄)
+
+# 백엔드 - 백테스트
+app/api/backtest/route.ts        # 분석 이력 기반 수익률 계산 (252줄)
+
+# 백엔드 - Pro 전용 (VIP API)
+app/api/vip/exclusive-stocks/route.ts  # Pro 전용 종목
+app/api/vip/signals/route.ts          # Pro 실시간 시그널
+app/api/vip/custom-debate/route.ts    # Pro 커스텀 분석
+app/api/cron/vip-stocks/route.ts      # 주간 종목 생성 cron
+app/api/cron/vip-signals/route.ts     # 시그널 생성 cron
+
 # 프론트엔드 - 공통
 components/Header.tsx             # 데스크톱 헤더 (7개 메뉴)
 components/BottomNav.tsx          # 모바일 하단 탭바
@@ -55,6 +79,20 @@ components/BottomNav.tsx          # 모바일 하단 탭바
 # 프론트엔드 - 분석 페이지
 app/analysis/page.tsx             # AI 분석 홈 (종목 검색 + 인기 종목 그리드)
 app/analysis/[symbol]/page.tsx    # 종목 상세 (교차검증 결과 표시)
+
+# 프론트엔드 - 종목배틀
+app/battle/page.tsx               # 배틀 랜딩 (238줄, 종목 선택 + 한/미 탭)
+app/battle/[symbol]/page.tsx      # 토론 UI (1,267줄, SSE 스트리밍, 4라운드, 타이핑 애니메이션)
+
+# 프론트엔드 - 투자고수
+app/heroes/page.tsx               # 히어로 목록 (217줄, 3캐릭터 프로필 + 추천 캘린더)
+app/heroes/[heroId]/page.tsx      # 히어로 상세 (834줄, Top 5 추천 + AI 의견 채팅 + 구독 잠금)
+
+# 프론트엔드 - 테마분석
+app/themes/page.tsx               # 테마 분석 (448줄, 8개 테마 + AI 히어로별 분석)
+
+# 프론트엔드 - 백테스트
+app/backtest/page.tsx             # 백테스트 (435줄, 기간별 성과 + 전략 비교 + 승률)
 
 # 프론트엔드 - 분석 컴포넌트
 components/analysis/TierBasedResult.tsx       # 티어별 분석 결과 분기
@@ -87,7 +125,11 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 - [x] 인증 시스템 (@supabase/ssr + 쿠키 세션 + middleware 토큰 리프레시)
 - [x] 네비게이션 재구성 (데스크톱 7메뉴 + 모바일 하단탭바 + 페이지 정리)
 - [x] 핵심 플로우 (분석 이력 저장 + 마이페이지 이력탭 + 비로그인 유도)
-- [ ] 미구현 페이지 (battle, heroes, themes, backtest)
+- [x] 종목배틀 (배틀 랜딩 + 토론 UI + SSE 스트리밍 4라운드 + debate API 4개)
+- [x] 투자고수 (히어로 목록 + 상세 + Top 5 추천 API 한/미)
+- [x] 테마분석 (8개 테마 + AI 히어로별 분석 API)
+- [x] 백테스트 (기간별 성과 + 전략 비교 + 수익률 계산 API)
+- [x] VIP 페이지 정리 (폐지된 VIP 프론트엔드 삭제, Pro용 API 유지)
 - [ ] 배포 (Vercel + 환경변수 + Google OAuth redirect URI)
 
 ## 환경 변수 (.env.local) 상태
