@@ -108,8 +108,8 @@ export function Header() {
               )}
               
               <div className="ml-2 xl:ml-4 pl-2 xl:pl-4 border-l border-dark-700 flex items-center gap-2 xl:gap-3">
-                {/* 플랜 배지 */}
-                {!planLoading && (
+                {/* 플랜 배지 (유료 플랜만 표시) */}
+                {!planLoading && planName !== 'free' && (
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
                     {isVip && <CrownIcon className="w-3 h-3" />}
                     {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
@@ -191,8 +191,8 @@ export function Header() {
                 )}
               </div>
               
-              {/* 모바일 플랜 배지 */}
-              {!planLoading && (
+              {/* 모바일 플랜 배지 (유료 플랜만 표시) */}
+              {!planLoading && planName !== 'free' && (
                 <div className="mt-3 flex justify-center">
                   <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
                     {isVip && <CrownIcon className="w-3 h-3" />}
