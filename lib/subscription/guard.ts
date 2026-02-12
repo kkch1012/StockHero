@@ -49,18 +49,6 @@ export const PLAN_LIMITS = {
     portfolioAnalysisPerDay: 3,
   },
   pro: {
-    consultationPerDay: 50,
-    consultationMaxLength: 2000,
-    debatePerDay: 20,
-    debateDelay: 0,
-    top5Visible: 5,
-    showTargetPrice: true,
-    showTargetDate: true,
-    backtestDays: 90,
-    portfolioStocks: 30,
-    portfolioAnalysisPerDay: 10,
-  },
-  vip: {
     consultationPerDay: -1, // 무제한
     consultationMaxLength: 5000,
     debatePerDay: -1,
@@ -71,7 +59,7 @@ export const PLAN_LIMITS = {
     backtestDays: 365,
     portfolioStocks: -1,
     portfolioAnalysisPerDay: -1,
-    deepAnalysis: true, // VIP 전용 심층분석
+    deepAnalysis: true, // Pro 전용 심층분석
   },
 };
 

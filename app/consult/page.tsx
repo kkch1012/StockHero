@@ -69,7 +69,7 @@ export default function ConsultPage() {
   const searchRef = useRef<HTMLDivElement>(null);
   
   // 구독 정보
-  const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
+  const { planName, isPremium, isPro, isLoading: planLoading } = useCurrentPlan();
   const { limit: consultationLimit, increment: incrementConsultation, openUpgrade } = useUsageLimit('ai_consultations');
   const { openUpgradeModal } = useSubscription();
   

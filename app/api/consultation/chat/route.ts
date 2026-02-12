@@ -522,12 +522,12 @@ ${stockData.volume ? `- **거래량**: ${stockData.volume.toLocaleString()}주` 
     const todayStr = today.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
     systemPrompt += `\n\n## 📅 현재 날짜: ${todayStr}\n`;
 
-    // VIP 전용 심층 분석 프롬프트 추가
-    if (planName === 'vip' && (limits as any).deepAnalysis) {
+    // Pro 전용 심층 분석 프롬프트 추가
+    if (planName === 'pro' && (limits as any).deepAnalysis) {
       systemPrompt += `
 
-## 👑 VIP 전용 심층 분석 모드
-이 사용자는 VIP 회원입니다. 다음 추가 분석을 제공하세요:
+## 👑 Pro 전용 심층 분석 모드
+이 사용자는 Pro 회원입니다. 다음 추가 분석을 제공하세요:
 1. **기관/외국인 수급 트렌드 분석**
 2. **차트 기술적 분석** (지지/저항선, 이동평균선)
 3. **업종 내 상대강도 비교**

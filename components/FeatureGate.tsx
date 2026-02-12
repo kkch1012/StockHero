@@ -33,7 +33,7 @@ export function FeatureGate({
   showUsage = false,
   fallback,
 }: FeatureGateProps) {
-  const { planName, isPremium, isVip, isLoading } = useCurrentPlan();
+  const { planName, isPremium, isPro, isLoading } = useCurrentPlan();
   const tier = (planName || 'free') as SubscriptionTier;
 
   // 구독 기능 비활성화 시 바로 children 렌더링
@@ -109,7 +109,7 @@ export function withFeatureGate<P extends object>(
  * useFeatureGate - 훅 버전 (프로그래밍 방식 접근 제어)
  */
 export function useFeatureGate(feature: keyof typeof FEATURE_LIMITS) {
-  const { planName, isPremium, isVip, isLoading } = useCurrentPlan();
+  const { planName, isPremium, isPro, isLoading } = useCurrentPlan();
   const tier = (planName || 'free') as SubscriptionTier;
 
   // 구독 기능 비활성화 시 모든 기능 허용
@@ -130,9 +130,8 @@ export function useFeatureGate(feature: keyof typeof FEATURE_LIMITS) {
 
   const hasFeatureAccess = canAccessFeature(tier, feature);
   const featureLimit = getFeatureLimit(tier, feature);
-  const tierOrderArr = ['free', 'basic', 'pro', 'vip'];
+  const tierOrderArr = ['free', 'basic', 'pro'];
   const currentTierIdx = tierOrderArr.indexOf(planName || 'free');
-  const isPro = currentTierIdx >= 2; // pro or vip
 
   return {
     canAccess: hasFeatureAccess,
@@ -145,7 +144,7 @@ export function useFeatureGate(feature: keyof typeof FEATURE_LIMITS) {
     isPremium,
     needsUpgrade: !hasFeatureAccess,
     requiredTier: !hasFeatureAccess
-      ? (currentTierIdx >= 2 ? 'vip' : 'pro')
+      ? 'pro'
       : null,
   };
 }

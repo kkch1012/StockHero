@@ -7,7 +7,7 @@ import { UserMenu } from './UserMenu';
 import { useCurrentPlan, useSubscription } from '@/lib/subscription/hooks';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { isAdmin } from '@/lib/admin/config';
-import { CrownIcon, SparklesIcon, ZapIcon, Menu, X, ShieldCheckIcon } from 'lucide-react';
+import { SparklesIcon, Menu, X, ShieldCheckIcon } from 'lucide-react';
 
 const NAV_LINKS: { href: string; label: string; icon: string; pro?: boolean }[] = [
   { href: '/', label: 'Top 5', icon: '🏆' },
@@ -26,7 +26,6 @@ const PLAN_BADGE_STYLES = {
   lite: { label: 'LITE', bg: 'bg-cyan-500/20', text: 'text-cyan-400', border: 'border border-cyan-500/30' },
   basic: { label: 'BASIC', bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border border-blue-500/30' },
   pro: { label: 'PRO', bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border border-purple-500/30' },
-  vip: { label: 'VIP', bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border border-amber-500/30 ring-1 ring-amber-500/20' },
 };
 
 export function Header() {
@@ -38,7 +37,7 @@ export function Header() {
   const userIsAdmin = isAdmin(user?.email);
   
   // 구독 정보
-  const { planName, isPremium, isVip, isLoading: planLoading } = useCurrentPlan();
+  const { planName, isPremium, isLoading: planLoading } = useCurrentPlan();
   const planBadge = PLAN_BADGE_STYLES[planName as keyof typeof PLAN_BADGE_STYLES] || PLAN_BADGE_STYLES.free;
 
   const isActive = (href: string) => {
@@ -82,22 +81,8 @@ export function Header() {
                   )}
                 </Link>
               ))}
-              
-              {/* VIP 메뉴 (VIP 회원만) */}
-              {isVip && (
-                <Link
-                  href="/vip"
-                  className={`px-3 xl:px-4 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                    isActive('/vip')
-                      ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
-                      : 'text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10'
-                  }`}
-                >
-                  <CrownIcon className="w-4 h-4" />
-                  <span>VIP</span>
-                </Link>
-              )}
-              
+
+
               {/* 관리자 메뉴 */}
               {userIsAdmin && (
                 <Link
@@ -117,7 +102,6 @@ export function Header() {
                 {/* 플랜 배지 (유료 플랜만 표시) */}
                 {!planLoading && planName !== 'free' && (
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
-                    {isVip && <CrownIcon className="w-3 h-3" />}
                     {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
                     {planBadge.label}
                   </div>
@@ -169,22 +153,6 @@ export function Header() {
                   </Link>
                 ))}
                 
-                {/* VIP 메뉴 (VIP 회원만) */}
-                {isVip && (
-                  <Link
-                    href="/vip"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`px-3 py-2.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 col-span-2 whitespace-nowrap ${
-                      isActive('/vip')
-                        ? 'text-amber-400 bg-amber-500/20 border border-amber-500/30'
-                        : 'text-amber-400/70 hover:text-amber-400 border border-amber-500/20'
-                    }`}
-                  >
-                    <CrownIcon className="w-4 h-4" />
-                    <span>VIP 대시보드</span>
-                  </Link>
-                )}
-                
                 {/* 관리자 메뉴 (관리자만) */}
                 {userIsAdmin && (
                   <Link
@@ -206,7 +174,6 @@ export function Header() {
               {!planLoading && planName !== 'free' && (
                 <div className="mt-3 flex justify-center">
                   <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${planBadge.bg} ${planBadge.text} ${planBadge.border} flex items-center gap-1 whitespace-nowrap`}>
-                    {isVip && <CrownIcon className="w-3 h-3" />}
                     {planName === 'pro' && <SparklesIcon className="w-3 h-3" />}
                     <span>{planBadge.label}</span>
                   </div>

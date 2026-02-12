@@ -79,14 +79,14 @@ export function Calendar({ onDateSelect }: CalendarProps) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // 구독 정보
-  const { planName, isPremium, isVip } = useCurrentPlan();
+  const { planName, isPremium, isPro } = useCurrentPlan();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // 등급별 과거 이력 접근 일수
   const getHistoryDays = (): number => {
-    if (planName === 'pro' || planName === 'vip' || isVip) return -1; // 무제한
+    if (planName === 'pro' || isPro) return -1; // 무제한
     if (planName === 'basic' || isPremium) return 7; // 7일
     return 0; // free: 오늘만
   };

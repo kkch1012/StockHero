@@ -17,7 +17,6 @@ export interface PlanFeature {
   lite: string | boolean | number;
   basic: string | boolean | number;
   pro: string | boolean | number;
-  vip?: string | boolean | number;
 }
 
 export interface SubscriptionPlan {
@@ -101,7 +100,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     id: 'pro',
     name: 'Pro',
     nameKo: '프로',
-    description: '무제한 분석 + VIP 종목',
+    description: '무제한 분석 + Pro 전용 종목',
     monthlyPrice: 39900,
     yearlyPrice: 383040,
     yearlyDiscount: 20,
@@ -114,7 +113,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       '상세 시나리오 분석',
       '목표가 + 달성 시점',
       '종목 토론 요청 20개/일',
-      'VIP 전용 종목 추천',
+      'Pro 전용 종목 추천',
       '커스텀 심층 분석',
       '90일 백테스트',
       '우선 고객 지원',
@@ -248,9 +247,9 @@ export const FEATURE_LIMITS: Record<string, PlanFeature> = {
     pro: true,
   },
 
-  // VIP 기능 (Pro 전용)
-  vipStocks: {
-    name: 'VIP 전용 종목',
+  // Pro 전용 기능
+  exclusiveStocks: {
+    name: 'Pro 전용 종목',
     free: false,
     lite: false,
     basic: false,

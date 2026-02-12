@@ -24,7 +24,7 @@ const supabase = createClient(
 );
 
 // 플랜 순서
-const PLAN_ORDER: PlanName[] = ['free', 'basic', 'pro', 'vip'];
+const PLAN_ORDER: PlanName[] = ['free', 'basic', 'pro'];
 
 /**
  * GET: 알림 목록 조회
