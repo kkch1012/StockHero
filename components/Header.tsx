@@ -50,11 +50,11 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3">
         <div className="flex items-center gap-3">
           {/* 로고 - 왼쪽 독립 */}
-          <Link href="/" className="flex items-center gap-2 group shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
-              <span className="text-white font-bold text-base">S</span>
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <span className="text-white font-bold text-lg">S</span>
             </div>
-            <span className="font-bold text-lg text-dark-50 group-hover:text-white transition-colors hidden sm:block whitespace-nowrap">
+            <span className="font-bold text-xl text-dark-50 group-hover:text-white transition-colors hidden sm:block whitespace-nowrap">
               StockHero
             </span>
           </Link>
