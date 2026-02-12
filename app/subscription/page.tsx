@@ -260,7 +260,7 @@ export default function SubscriptionPage() {
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-3xl p-8 transition-all duration-300 ${
+                className={`relative rounded-3xl p-8 transition-all duration-300 flex flex-col ${
                   isPopular
                     ? 'bg-gradient-to-b from-brand-500/20 to-dark-800 border-2 border-brand-500 scale-105 shadow-2xl shadow-brand-500/20'
                     : 'bg-dark-800 border border-dark-700 hover:border-dark-600'
@@ -313,7 +313,7 @@ export default function SubscriptionPage() {
                 </div>
 
                 {/* 기능 목록 */}
-                <ul className="space-y-3 mb-8">
+                <ul className="space-y-3 mb-8 flex-1">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start gap-3">
                       <span className="text-brand-400 mt-0.5">✓</span>
