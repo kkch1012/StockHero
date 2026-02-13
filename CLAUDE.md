@@ -131,6 +131,11 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 - [x] 백테스트 (기간별 성과 + 전략 비교 + 수익률 계산 API)
 - [x] VIP 페이지 정리 (폐지된 VIP 프론트엔드 삭제, Pro용 API 유지)
 - [x] 배포 (Vercel + GitHub 레포 연결 완료, 환경변수 + Google OAuth redirect URI는 웹 콘솔 설정)
+- [x] AI 상담 버그 수정 (sendMessage 필드명 불일치 + FREE_MODE 우회 + Gemini history 순서)
+- [x] 관리자 시스템 (isAdmin 체크 → Pro 무제한, 3계정 등록)
+- [x] 마크다운 제거 (AI 응답에서 ##/**/*/ 등 strip, 이모지 유지)
+- [x] 마이페이지 통계 연동 (user_activity_stats.total_consultations 업데이트)
+- [x] Cron 수동 트리거 (daily-top5-debate 실행, verdicts 데이터 확인)
 
 ## 환경 변수 (.env.local) 상태
 
@@ -163,15 +168,53 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 
 ## TODO (2026-02-13)
 
-### 1. CRON_SECRET 설정 + Cron 트리거
-- Vercel 대시보드에서 `CRON_SECRET` 환경변수 추가 (랜덤 문자열)
-- 수동 트리거로 `daily-top5-debate` 실행 → `verdicts` 테이블에 데이터 생성 확인
-- 홈페이지(`/`)에 오늘의 Top 5 표시되는지 확인
+### ~~1. CRON_SECRET 설정 + Cron 트리거~~ ✅ 완료
+- ~~Vercel 대시보드에서 `CRON_SECRET` 환경변수 추가~~ → 설정 완료
+- ~~수동 트리거로 `daily-top5-debate` 실행~~ → verdicts 테이블에 오늘 데이터 존재 확인
+- 홈페이지 Top 5 표시 확인 필요
 
-### 2. Supabase `verdicts` 테이블 확인
+### ~~2. AI 상담 버그 수정~~ ✅ 완료 (8개 커밋)
+- sendMessage 필드명 불일치 수정
+- consultation/chat API FREE_MODE 우회 추가
+- 관리자 계정 무제한 접근
+- Gemini history 순서 수정
+- 마크다운 제거, 에러 피드백, 마이페이지 통계 연동
+
+### 3. Supabase `verdicts` 테이블 확인
 - 테이블 존재 여부, 컬럼 구조 (top5, claude_top5, gemini_top5, gpt_top5, debate_log 등)
 - `predictions` 테이블도 확인
 - 필요 시 마이그레이션 추가
+
+## 잔여 가짜/하드코딩 데이터 목록 (향후 정리 대상)
+
+> 2026-02-13 코드 스캔 결과. 현재는 데모용으로 유지, 실제 데이터 축적 후 교체 예정.
+
+### 높은 우선순위 (사용자에게 잘못된 정보 가능)
+
+| # | 파일 | 문제 | 비고 |
+|---|------|------|------|
+| 1 | `app/api/b2b/one-line/route.ts:4-46` | `MOCK_COMMENTS` - 7개 종목 가짜 분석 결과 (sentiment/confidence 고정) | B2B API 사용 시 실제 AI 분석으로 교체 필요 |
+| 2 | `app/api/backtest/route.ts:20-125` | `HIGH_RETURN_SAMPLES` - 10개 종목 비현실적 수익률 (268%, 193% 등) | DB 분석이력 축적 후 실제 데이터로 교체 |
+| 3 | `app/api/analysis/cross-validate/route.ts:90` | `currentPrice \|\| 70000` - 현재가 못 받으면 임의 70000원 사용 | 에러 반환 또는 재시도 로직 필요 |
+
+### 낮은 우선순위 (의도적 하드코딩 / 기능적 문제 없음)
+
+| # | 파일 | 내용 | 비고 |
+|---|------|------|------|
+| 4 | `app/battle/[symbol]/page.tsx:81-128` | `SYMBOL_MAP` - 43개 종목 메타데이터 (이름/섹터/기본가격) | AI 분석 후보군, 실시간 가격은 별도 조회 |
+| 5 | `app/api/cron/daily-top5-debate/route.ts:23-67` | `CANDIDATE_STOCKS` - 67개 후보 종목 | Cron이 여기서 랜덤 선정, 의도적 설계 |
+| 6 | `app/api/cron/vip-stocks/route.ts` | 15개 VIP 종목 후보 | Pro 전용 추천 후보군 |
+| 7 | `app/api/premium/hidden-gems/route.ts` | 18개 숨겨진 보석 후보 | AI가 실시간 분석하므로 기능 문제 없음 |
+| 8 | `app/battle/page.tsx` | 인기 종목 8개(한국) + 6개(미국) | UI 바로가기용, 의도적 |
+
+### 완료 (2026-02-13 수정됨)
+
+| # | 파일 | 수정 내용 |
+|---|------|----------|
+| ~~1~~ | `app/community/page.tsx` | ~~POPULAR_STOCKS 가짜 통계~~ → API `/api/community/stock-rooms` 실제 DB 조회 |
+| ~~2~~ | `components/marketing/ComparisonTable.tsx` | ~~가짜 fallback (85,000원 목표가)~~ → API 실패 시 숨김 |
+| ~~3~~ | `components/marketing/MissedOpportunity.tsx` | ~~가짜 fallback (에코프로 +12% 등)~~ → 실제 데이터 없으면 숨김 |
+| ~~4~~ | `app/report/[id]/page.tsx` | ~~MOCK_REPORT 전체 목업~~ → `/api/report/[id]` 실제 analysis_history 조회 |
 
 ## 개발 규칙
 - 한국어 커밋 메시지 사용
