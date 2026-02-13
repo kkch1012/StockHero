@@ -400,9 +400,11 @@ export async function POST(request: NextRequest) {
 
     // ==================== 구독 기반 접근 제어 ====================
     const FREE_MODE = !SUBSCRIPTION_ENABLED;
-    const subInfo = FREE_MODE ? null : await getSubscriptionInfo(request);
+    // FREE_MODE에서도 유저 정보는 가져옴 (활동 통계 기록용)
+    const subInfo = await getSubscriptionInfo(request);
+    const realUserId = subInfo?.userId || 'anonymous';
     const planName = FREE_MODE ? 'pro' : (subInfo?.planName || 'free');
-    const userId = FREE_MODE ? 'free-mode' : (subInfo?.userId || 'anonymous');
+    const userId = FREE_MODE ? realUserId : (subInfo?.userId || 'anonymous');
     const limits = PLAN_LIMITS[planName as PlanName] || PLAN_LIMITS.free;
     const contentLimits = CONTENT_LENGTH_LIMITS[planName as keyof typeof CONTENT_LENGTH_LIMITS] || CONTENT_LENGTH_LIMITS.pro;
 
@@ -693,6 +695,39 @@ ${queryKeyword} 관련 최신 뉴스를 찾지 못했습니다.
           limit: rateLimit.limit,
           remaining: Math.max(0, rateLimit.remaining - 1),
         };
+      }
+    }
+
+    // 활동 통계 업데이트 (로그인한 유저만, FREE_MODE 무관)
+    if (realUserId !== 'anonymous') {
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseKey) {
+          const { createClient } = await import('@supabase/supabase-js');
+          const adminClient = createClient(supabaseUrl, supabaseKey);
+
+          // 기존 stats 조회
+          const { data: existing } = await adminClient
+            .from('user_activity_stats')
+            .select('total_consultations')
+            .eq('user_id', realUserId)
+            .single();
+
+          if (existing) {
+            await adminClient
+              .from('user_activity_stats')
+              .update({ total_consultations: (existing.total_consultations || 0) + 1 })
+              .eq('user_id', realUserId);
+          } else {
+            await adminClient
+              .from('user_activity_stats')
+              .insert({ user_id: realUserId, total_consultations: 1 });
+          }
+        }
+      } catch (e) {
+        // 통계 업데이트 실패해도 응답에 영향 없음
+        console.log('Activity stats update failed:', e);
       }
     }
 
