@@ -1,6 +1,8 @@
 // 구독 취소 API
 
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { cancelSubscription } from '@/lib/subscription/service';
 import { cancelScheduledPayment } from '@/lib/subscription/portone';
