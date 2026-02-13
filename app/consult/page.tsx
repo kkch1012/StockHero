@@ -216,19 +216,18 @@ export default function ConsultPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          character: selectedAI,
-          stock: { symbol: selectedStock.symbol, name: selectedStock.name },
+          characterType: selectedAI,
+          stockData: selectedStock ? { symbol: selectedStock.symbol, name: selectedStock.name, currentPrice: 0, change: 0, changePercent: 0 } : undefined,
           messages: [...messages, { role: 'user', content: userMessage }],
-          isInitial: false,
-          maxLength: responseLimit,
+          isInitialAnalysis: false,
         }),
       });
 
       const data = await res.json();
-      if (data.success && data.response) {
+      if (data.success && data.data?.content) {
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: data.response,
+          content: data.data.content,
           character: selectedAI,
         }]);
       }
