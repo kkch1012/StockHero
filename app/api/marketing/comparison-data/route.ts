@@ -26,10 +26,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error || !latestVerdict?.top5?.[0]) {
-      // 폴백 데이터
       return NextResponse.json({
-        success: true,
-        stock: getDefaultComparisonData(),
+        success: false,
+        error: 'No verdict data available',
       });
     }
 
@@ -66,36 +65,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('[Marketing] Comparison data error:', error);
-    
+
     return NextResponse.json({
-      success: true,
-      stock: getDefaultComparisonData(),
+      success: false,
+      error: 'Failed to fetch comparison data',
     });
   }
-}
-
-/**
- * 기본 비교 데이터
- */
-function getDefaultComparisonData() {
-  return {
-    name: '삼성전자',
-    symbol: '005930',
-    freeInfo: {
-      rank: '1위',
-      analysis: 'AI 3인 합의 추천',
-      targetPrice: null,
-      targetDate: null,
-      signal: null,
-    },
-    proInfo: {
-      rank: '1위',
-      analysis: 'AI 3인 합의 추천. 반도체 업황 회복과 HBM 수요 증가로 실적 개선 기대. 외국인 순매수 지속.',
-      targetPrice: '85,000원',
-      targetDate: '3개월 내',
-      signal: '매수 (RSI 35, 과매도 구간)',
-    },
-  };
 }
 
 /**

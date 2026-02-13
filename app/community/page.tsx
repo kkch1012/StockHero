@@ -31,12 +31,12 @@ interface StockRoom {
   lastActivity: string;
 }
 
-const POPULAR_STOCKS: StockRoom[] = [
-  { code: '005930', name: '삼성전자', postCount: 128, lastActivity: '방금 전' },
-  { code: '000660', name: 'SK하이닉스', postCount: 89, lastActivity: '5분 전' },
-  { code: '373220', name: 'LG에너지솔루션', postCount: 67, lastActivity: '12분 전' },
-  { code: '035720', name: '카카오', postCount: 54, lastActivity: '20분 전' },
-  { code: '035420', name: 'NAVER', postCount: 43, lastActivity: '30분 전' },
+const DEFAULT_STOCK_TAGS = [
+  { code: '005930', name: '삼성전자' },
+  { code: '000660', name: 'SK하이닉스' },
+  { code: '373220', name: 'LG에너지솔루션' },
+  { code: '035720', name: '카카오' },
+  { code: '035420', name: 'NAVER' },
 ];
 
 function formatTimeAgo(dateString: string): string {
@@ -199,7 +199,7 @@ function CreatePostModal({
           <div className="mt-4">
             <label className="text-sm text-dark-400 mb-2 block">종목 태그 (선택)</label>
             <div className="flex flex-wrap gap-2">
-              {POPULAR_STOCKS.slice(0, 5).map((stock) => (
+              {DEFAULT_STOCK_TAGS.map((stock) => (
                 <button
                   key={stock.code}
                   onClick={() => setSelectedStock(
@@ -244,10 +244,27 @@ export default function CommunityPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'feed' | 'stocks'>('feed');
+  const [stockRooms, setStockRooms] = useState<StockRoom[]>([]);
+  const [stockRoomsLoading, setStockRoomsLoading] = useState(true);
 
   useEffect(() => {
     fetchPosts();
+    fetchStockRooms();
   }, []);
+
+  async function fetchStockRooms() {
+    try {
+      const res = await fetch('/api/community/stock-rooms');
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setStockRooms(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stock rooms:', error);
+    } finally {
+      setStockRoomsLoading(false);
+    }
+  }
 
   async function fetchPosts() {
     try {
@@ -391,30 +408,41 @@ export default function CommunityPage() {
               ) : (
                 /* Stock Rooms */
                 <div className="space-y-3">
-                  {POPULAR_STOCKS.map((stock) => (
-                    <Link
-                      key={stock.code}
-                      href={`/community/stock/${stock.code}`}
-                      className="card flex items-center gap-4 hover:border-dark-600 transition-all group"
-                    >
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center text-lg font-bold text-dark-300">
-                        {stock.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-dark-100 group-hover:text-white transition-colors">
-                          {stock.name}
-                        </h3>
-                        <p className="text-sm text-dark-500">{stock.code}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-dark-300">{stock.postCount}개 글</div>
-                        <div className="text-xs text-dark-500">{stock.lastActivity}</div>
-                      </div>
-                      <svg className="w-5 h-5 text-dark-600 group-hover:text-dark-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  ))}
+                  {stockRoomsLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : stockRooms.length === 0 ? (
+                    <div className="card text-center py-16">
+                      <h3 className="text-lg font-medium text-dark-300 mb-2">아직 종목방이 없습니다</h3>
+                      <p className="text-dark-500">게시글에 종목 태그를 달면 자동으로 종목방이 생성됩니다.</p>
+                    </div>
+                  ) : (
+                    stockRooms.map((stock) => (
+                      <Link
+                        key={stock.code}
+                        href={`/community/stock/${stock.code}`}
+                        className="card flex items-center gap-4 hover:border-dark-600 transition-all group"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center text-lg font-bold text-dark-300">
+                          {stock.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-dark-100 group-hover:text-white transition-colors">
+                            {stock.name}
+                          </h3>
+                          <p className="text-sm text-dark-500">{stock.code}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-dark-300">{stock.postCount}개 글</div>
+                          <div className="text-xs text-dark-500">{formatTimeAgo(stock.lastActivity)}</div>
+                        </div>
+                        <svg className="w-5 h-5 text-dark-600 group-hover:text-dark-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -427,51 +455,57 @@ export default function CommunityPage() {
                   <span className="text-base lg:text-lg">🔥</span>
                   인기 토론
                 </h3>
-                {/* Mobile: horizontal scroll */}
-                <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-                  {POPULAR_STOCKS.slice(0, 5).map((stock, i) => (
-                    <Link
-                      key={stock.code}
-                      href={`/community/stock/${stock.code}`}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/50 hover:bg-dark-800 transition-colors shrink-0"
-                    >
-                      <span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? 'bg-rose-500 text-white' :
-                        i === 1 ? 'bg-orange-500 text-white' :
-                        i === 2 ? 'bg-amber-500 text-white' :
-                        'bg-dark-700 text-dark-400'
-                      }`}>
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-dark-300 whitespace-nowrap">
-                        {stock.name}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-                {/* Desktop: vertical list */}
-                <div className="hidden lg:block space-y-3">
-                  {POPULAR_STOCKS.slice(0, 5).map((stock, i) => (
-                    <Link
-                      key={stock.code}
-                      href={`/community/stock/${stock.code}`}
-                      className="flex items-center gap-3 group"
-                    >
-                      <span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? 'bg-rose-500 text-white' :
-                        i === 1 ? 'bg-orange-500 text-white' :
-                        i === 2 ? 'bg-amber-500 text-white' :
-                        'bg-dark-800 text-dark-400'
-                      }`}>
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-dark-300 group-hover:text-dark-100 transition-colors flex-1">
-                        {stock.name}
-                      </span>
-                      <span className="text-xs text-dark-500">{stock.postCount}</span>
-                    </Link>
-                  ))}
-                </div>
+                {stockRooms.length === 0 ? (
+                  <p className="text-sm text-dark-500">아직 토론 데이터가 없습니다.</p>
+                ) : (
+                  <>
+                    {/* Mobile: horizontal scroll */}
+                    <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+                      {stockRooms.slice(0, 5).map((stock, i) => (
+                        <Link
+                          key={stock.code}
+                          href={`/community/stock/${stock.code}`}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/50 hover:bg-dark-800 transition-colors shrink-0"
+                        >
+                          <span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
+                            i === 0 ? 'bg-rose-500 text-white' :
+                            i === 1 ? 'bg-orange-500 text-white' :
+                            i === 2 ? 'bg-amber-500 text-white' :
+                            'bg-dark-700 text-dark-400'
+                          }`}>
+                            {i + 1}
+                          </span>
+                          <span className="text-sm text-dark-300 whitespace-nowrap">
+                            {stock.name}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                    {/* Desktop: vertical list */}
+                    <div className="hidden lg:block space-y-3">
+                      {stockRooms.slice(0, 5).map((stock, i) => (
+                        <Link
+                          key={stock.code}
+                          href={`/community/stock/${stock.code}`}
+                          className="flex items-center gap-3 group"
+                        >
+                          <span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
+                            i === 0 ? 'bg-rose-500 text-white' :
+                            i === 1 ? 'bg-orange-500 text-white' :
+                            i === 2 ? 'bg-amber-500 text-white' :
+                            'bg-dark-800 text-dark-400'
+                          }`}>
+                            {i + 1}
+                          </span>
+                          <span className="text-sm text-dark-300 group-hover:text-dark-100 transition-colors flex-1">
+                            {stock.name}
+                          </span>
+                          <span className="text-xs text-dark-500">{stock.postCount}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* AI Consultation Share Prompt - Hidden on mobile */}

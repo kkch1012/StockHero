@@ -84,22 +84,10 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.changePercent - a.changePercent)
       .slice(0, 5);
 
-    // 데이터가 없으면 폴백 데이터 생성
     if (sortedStocks.length === 0) {
       return NextResponse.json({
         success: true,
-        stocks: [
-          {
-            name: 'HD현대일렉트릭',
-            symbol: '267260',
-            alertPrice: 285000,
-            currentPrice: 312000,
-            changePercent: 9.5,
-            alertTime: '어제 오전 10:45',
-            alertType: 'BUY_SIGNAL',
-          },
-        ],
-        isFallback: true,
+        stocks: [],
       });
     }
 
@@ -109,22 +97,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[Marketing] Missed opportunities error:', error);
-    
-    // 폴백 데이터 반환
+
     return NextResponse.json({
-      success: true,
-      stocks: [
-        {
-          name: '두산에너빌리티',
-          symbol: '034020',
-          alertPrice: 18500,
-          currentPrice: 21200,
-          changePercent: 14.6,
-          alertTime: '어제 오후 2:30',
-          alertType: 'PRICE_SURGE',
-        },
-      ],
-      isFallback: true,
+      success: false,
+      error: 'Failed to fetch missed opportunities',
     });
   }
 }
