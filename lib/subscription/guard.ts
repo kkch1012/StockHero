@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getPlanFeatures, PLAN_ORDER, PLAN_DISPLAY_NAMES } from './utils';
 import type { PlanFeatures, FeatureType } from '@/types/subscription';
+import { isAdmin } from '@/lib/admin/config';
 
 // Lazy initialization
 let _supabase: SupabaseClient | null = null;
@@ -130,11 +131,13 @@ export async function getSubscriptionInfo(request: NextRequest): Promise<Subscri
     // Authorization 헤더에서 토큰 추출
     const authHeader = request.headers.get('Authorization');
     let userId: string | null = null;
+    let userEmail: string | null = null;
 
     if (supabase && authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const { data: { user } } = await supabase.auth.getUser(token);
       userId = user?.id || null;
+      userEmail = user?.email || null;
     }
 
     // 쿠키에서 세션 확인
@@ -149,10 +152,23 @@ export async function getSubscriptionInfo(request: NextRequest): Promise<Subscri
             if (tokenData?.access_token) {
               const { data: { user } } = await supabase.auth.getUser(tokenData.access_token);
               userId = user?.id || null;
+              userEmail = user?.email || null;
             }
           } catch {}
         }
       }
+    }
+
+    // 관리자 계정은 Pro 무제한
+    if (userId && isAdmin(userEmail)) {
+      return {
+        userId,
+        planName: 'pro' as PlanName,
+        planId: 'admin',
+        limits: PLAN_LIMITS.pro,
+        isActive: true,
+        periodEnd: null,
+      };
     }
 
     if (!userId) {
