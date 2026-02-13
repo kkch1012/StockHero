@@ -478,7 +478,7 @@ function StockDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-dark-950/90 backdrop-blur-sm" onClick={onClose} />
 
