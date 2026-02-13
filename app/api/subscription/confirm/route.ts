@@ -1,6 +1,8 @@
 // 결제 확인 API - 결제 완료 후 구독 활성화
 
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { SubscriptionTier } from '@/lib/subscription/config';
 import { getPaymentStatus } from '@/lib/subscription/portone';

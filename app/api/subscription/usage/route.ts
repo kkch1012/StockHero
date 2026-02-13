@@ -1,6 +1,8 @@
 // 기능 사용량 조회 및 체크 API
 
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { 
   checkFeatureUsage, 

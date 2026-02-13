@@ -1,6 +1,8 @@
 // 구독 정보 조회 API
 
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription/config';
 

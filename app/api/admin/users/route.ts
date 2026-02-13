@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { isAdmin } from '@/lib/admin/config';
 
+export const dynamic = 'force-dynamic';
+
 // Supabase Admin 클라이언트 (service role key 사용)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',

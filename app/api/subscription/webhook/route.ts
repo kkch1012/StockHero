@@ -1,6 +1,8 @@
 // 포트원 웹훅 API - 결제 상태 변경 알림 수신
 
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { getPaymentStatus } from '@/lib/subscription/portone';
 import { syncSubscriptionStatus } from '@/lib/subscription/service';
