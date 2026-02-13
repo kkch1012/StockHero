@@ -7,6 +7,7 @@ import type { CharacterType } from '@/lib/llm/types';
 import { searchStockNews } from '@/lib/market-data/news';
 import { getSubscriptionInfo, incrementDailyUsage, PLAN_LIMITS, type PlanName } from '@/lib/subscription/guard';
 import { checkRateLimit, CONTENT_LENGTH_LIMITS } from '@/lib/rate-limiter';
+import { SUBSCRIPTION_ENABLED } from '@/lib/subscription/config';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -393,39 +394,43 @@ export async function POST(request: NextRequest) {
     }
 
     // ==================== 구독 기반 접근 제어 ====================
-    const subInfo = await getSubscriptionInfo(request);
-    const planName = subInfo?.planName || 'free';
-    const userId = subInfo?.userId || 'anonymous';
+    const FREE_MODE = !SUBSCRIPTION_ENABLED;
+    const subInfo = FREE_MODE ? null : await getSubscriptionInfo(request);
+    const planName = FREE_MODE ? 'pro' : (subInfo?.planName || 'free');
+    const userId = FREE_MODE ? 'free-mode' : (subInfo?.userId || 'anonymous');
     const limits = PLAN_LIMITS[planName as PlanName] || PLAN_LIMITS.free;
-    const contentLimits = CONTENT_LENGTH_LIMITS[planName as keyof typeof CONTENT_LENGTH_LIMITS] || CONTENT_LENGTH_LIMITS.free;
+    const contentLimits = CONTENT_LENGTH_LIMITS[planName as keyof typeof CONTENT_LENGTH_LIMITS] || CONTENT_LENGTH_LIMITS.pro;
 
-    // 1. 사용량 체크 (일일 상담 횟수)
-    if (limits.consultationPerDay !== -1) {
-      const rateLimit = await checkRateLimit(userId, 'ai_consultations', planName);
-      if (!rateLimit.allowed) {
+    // FREE_MODE가 아닐 때만 사용량/길이 제한 적용
+    if (!FREE_MODE) {
+      // 1. 사용량 체크 (일일 상담 횟수)
+      if (limits.consultationPerDay !== -1) {
+        const rateLimit = await checkRateLimit(userId, 'ai_consultations', planName);
+        if (!rateLimit.allowed) {
+          return NextResponse.json({
+            success: false,
+            error: 'usage_limit_exceeded',
+            message: `오늘 AI 상담 횟수를 모두 사용했습니다. (${rateLimit.used}/${rateLimit.limit}회)`,
+            used: rateLimit.used,
+            limit: rateLimit.limit,
+            resetAt: rateLimit.resetAt,
+            upgradeUrl: '/pricing',
+          }, { status: 429 });
+        }
+      }
+
+      // 2. 입력 길이 제한
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+      if (lastUserMessage.length > contentLimits.consultationInput) {
         return NextResponse.json({
           success: false,
-          error: 'usage_limit_exceeded',
-          message: `오늘 AI 상담 횟수를 모두 사용했습니다. (${rateLimit.used}/${rateLimit.limit}회)`,
-          used: rateLimit.used,
-          limit: rateLimit.limit,
-          resetAt: rateLimit.resetAt,
+          error: 'content_too_long',
+          message: `질문이 너무 깁니다. ${planName === 'free' ? '무료' : planName} 플랜은 ${contentLimits.consultationInput}자까지 입력 가능합니다.`,
+          maxLength: contentLimits.consultationInput,
+          currentLength: lastUserMessage.length,
           upgradeUrl: '/pricing',
-        }, { status: 429 });
+        }, { status: 400 });
       }
-    }
-
-    // 2. 입력 길이 제한
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
-    if (lastUserMessage.length > contentLimits.consultationInput) {
-      return NextResponse.json({
-        success: false,
-        error: 'content_too_long',
-        message: `질문이 너무 깁니다. ${planName === 'free' ? '무료' : planName} 플랜은 ${contentLimits.consultationInput}자까지 입력 가능합니다.`,
-        maxLength: contentLimits.consultationInput,
-        currentLength: lastUserMessage.length,
-        upgradeUrl: '/pricing',
-      }, { status: 400 });
     }
     // ============================================================
 
@@ -663,26 +668,27 @@ ${queryKeyword} 관련 최신 뉴스를 찾지 못했습니다.
       }, { status: 503 });
     }
 
-    // 응답 길이 제한 적용
+    // 응답 길이 제한 적용 (FREE_MODE에서는 스킵)
     let finalContent = responseContent;
-    if (finalContent.length > contentLimits.consultationOutput) {
+    if (!FREE_MODE && finalContent.length > contentLimits.consultationOutput) {
       finalContent = finalContent.slice(0, contentLimits.consultationOutput) + '\n\n...(더 자세한 분석은 업그레이드 후 확인하세요)';
     }
 
-    // 사용량 증가 (성공 시)
-    if (userId !== 'anonymous') {
-      await incrementDailyUsage(userId, 'ai_consultations');
-    }
-
-    // 남은 사용량 계산
+    // 사용량 증가 (FREE_MODE가 아닐 때만)
     let usageInfo = null;
-    if (limits.consultationPerDay !== -1) {
-      const rateLimit = await checkRateLimit(userId, 'ai_consultations', planName);
-      usageInfo = {
-        used: rateLimit.used + 1,
-        limit: rateLimit.limit,
-        remaining: Math.max(0, rateLimit.remaining - 1),
-      };
+    if (!FREE_MODE) {
+      if (userId !== 'anonymous') {
+        await incrementDailyUsage(userId, 'ai_consultations');
+      }
+
+      if (limits.consultationPerDay !== -1) {
+        const rateLimit = await checkRateLimit(userId, 'ai_consultations', planName);
+        usageInfo = {
+          used: rateLimit.used + 1,
+          limit: rateLimit.limit,
+          remaining: Math.max(0, rateLimit.remaining - 1),
+        };
+      }
     }
 
     return NextResponse.json({
