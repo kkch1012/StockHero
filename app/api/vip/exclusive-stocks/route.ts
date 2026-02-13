@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSubscriptionInfo, type PlanName } from '@/lib/subscription/guard';
 import { sendVIPStockAlert } from '@/lib/notification-service';
+import { callAI } from '@/lib/llm/call-ai';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,12 +92,6 @@ function getThisWeekMonday(): string {
  * VIP 종목 AI 분석 생성
  */
 async function generateVIPStocks(): Promise<any[]> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    console.error('[VIP] OpenRouter API key not found');
-    return [];
-  }
-
   // 현재가 조회
   const stocksWithPrices = await Promise.all(
     VIP_STOCK_POOL.map(async (stock) => {
@@ -114,7 +109,7 @@ async function generateVIPStocks(): Promise<any[]> {
     .map(s => `- ${s.name}(${s.symbol}): ${s.currentPrice.toLocaleString()}원, ${s.changePercent > 0 ? '+' : ''}${s.changePercent.toFixed(1)}%, ${s.description}`)
     .join('\n');
 
-  const prompt = `${VIP_ANALYSIS_PROMPT}
+  const userPrompt = `${VIP_ANALYSIS_PROMPT}
 
 ## 분석 대상 종목 (VIP 전용 풀)
 ${stockList}
@@ -148,29 +143,11 @@ ${stockList}
 }`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4',
-        messages: [
-          { role: 'system', content: 'You are a premium stock analyst for VIP clients. Respond only in JSON.' },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 2048,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = await callAI(
+      'claude',
+      'You are a premium stock analyst for VIP clients. Respond only in JSON.',
+      userPrompt
+    );
     const jsonMatch = text.match(/\{[\s\S]*\}/);
 
     if (jsonMatch) {

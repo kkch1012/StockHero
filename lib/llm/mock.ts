@@ -14,9 +14,9 @@ export class MockLLMAdapter implements LLMAdapter {
   async generateStructured(context: LLMContext): Promise<LLMResponse> {
     // API 키가 없으면 에러 throw
     const errorMessages: Record<CharacterType, string> = {
-      claude: 'ANTHROPIC_API_KEY 또는 OPENROUTER_API_KEY가 설정되지 않았습니다.',
-      gemini: 'GOOGLE_AI_API_KEY 또는 OPENROUTER_API_KEY가 설정되지 않았습니다.',
-      gpt: 'OPENAI_API_KEY 또는 OPENROUTER_API_KEY가 설정되지 않았습니다.',
+      claude: 'ANTHROPIC_API_KEY가 설정되지 않았습니다.',
+      gemini: 'GOOGLE_AI_API_KEY가 설정되지 않았습니다.',
+      gpt: 'OPENAI_API_KEY가 설정되지 않았습니다.',
     };
     
     throw new Error(

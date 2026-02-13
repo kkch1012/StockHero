@@ -1,29 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { INVESTOR_TYPES, TYPE_PREFERENCES } from '@/lib/investment-style/results';
 import type { InvestorType } from '@/lib/investment-style/types';
+import { callAI } from '@/lib/llm/call-ai';
 
-// AI 캐릭터 정보 (2026년 1월 - 실제 존재하는 모델)
+// AI 캐릭터 정보
 const AI_HEROES = {
   claude: {
     id: 'claude',
     name: '클로드 리',
     nameEn: 'Claude Lee',
     style: '밸류에이션 전문가',
-    model: 'anthropic/claude-sonnet-4',
   },
   gemini: {
     id: 'gemini',
     name: '제미 나인',
     nameEn: 'Gemi Nine',
     style: '성장주 전문가',
-    model: 'google/gemini-2.5-pro-preview',
   },
   gpt: {
     id: 'gpt',
     name: 'G.P. 테일러',
     nameEn: 'G.P. Taylor',
     style: '매크로 전문가',
-    model: 'openai/gpt-4o',
   },
 };
 
@@ -109,8 +107,8 @@ function getCandidatesForType(investorType: InvestorType): any[] {
   return candidates.sort(() => Math.random() - 0.5);
 }
 
-// OpenRouter를 통한 AI 분석
-async function callOpenRouterForRecommendation(
+// AI SDK를 통한 분석
+async function getAIRecommendation(
   heroId: 'claude' | 'gemini' | 'gpt',
   investorType: InvestorType,
   candidates: any[],
@@ -119,11 +117,11 @@ async function callOpenRouterForRecommendation(
   const hero = AI_HEROES[heroId];
   const typeInfo = INVESTOR_TYPES[investorType];
   const prefs = TYPE_PREFERENCES[investorType];
-  
+
   // 이미 추천된 종목 제외
   const availableCandidates = candidates.filter(c => !alreadyRecommended.includes(c.symbol));
   const candidateList = availableCandidates.slice(0, 10);
-  
+
   const systemPrompt = `당신은 "${hero.name}" - ${hero.style}입니다.
 투자자 성향 분석 결과에 맞춰 최적의 종목 1개를 추천해야 합니다.
 
@@ -153,58 +151,29 @@ ${candidateList.map((c, i) => `${i + 1}. ${c.name} (${c.symbol}) - ${c.sector}`)
   "matchScore": 70-98 사이의 적합도 점수
 }`;
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  
-  if (!apiKey) {
-    // API 키가 없으면 폴백 로직 사용
-    return generateFallbackRecommendation(heroId, typeInfo, candidateList, prefs);
-  }
-  
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-        'X-Title': 'StockHero Investment Style',
-      },
-      body: JSON.stringify({
-        model: hero.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${typeInfo.name} 투자자에게 가장 적합한 종목 1개를 추천해주세요. JSON 형식으로만 응답하세요.` },
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
-    
-    if (!response.ok) {
-      console.error(`OpenRouter API error for ${heroId}:`, await response.text());
-      return generateFallbackRecommendation(heroId, typeInfo, candidateList, prefs);
-    }
-    
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    
-    // JSON 파싱
+    const content = await callAI(
+      heroId,
+      systemPrompt,
+      `${typeInfo.name} 투자자에게 가장 적합한 종목 1개를 추천해주세요. JSON 형식으로만 응답하세요.`,
+      { maxTokens: 500 }
+    );
+
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return generateFallbackRecommendation(heroId, typeInfo, candidateList, prefs);
     }
-    
+
     const parsed = JSON.parse(jsonMatch[0]);
-    
-    // 응답 검증
-    const validStock = candidateList.find(c => 
+
+    const validStock = candidateList.find(c =>
       c.symbol === parsed.symbol || c.name === parsed.name
     );
-    
+
     if (!validStock) {
       return generateFallbackRecommendation(heroId, typeInfo, candidateList, prefs);
     }
-    
+
     return {
       heroId,
       heroName: hero.name,
@@ -215,7 +184,6 @@ ${candidateList.map((c, i) => `${i + 1}. ${c.name} (${c.symbol}) - ${c.sector}`)
       reason: parsed.reason || `${typeInfo.name} 투자자에게 적합한 종목입니다.`,
       matchScore: Math.min(Math.max(parsed.matchScore || 75, 70), 98),
     };
-    
   } catch (error) {
     console.error(`AI recommendation error for ${heroId}:`, error);
     return generateFallbackRecommendation(heroId, typeInfo, candidateList, prefs);
@@ -285,7 +253,7 @@ export async function POST(request: NextRequest) {
     const recommendations = [];
     
     for (const heroId of ['claude', 'gemini', 'gpt'] as const) {
-      const rec = await callOpenRouterForRecommendation(
+      const rec = await getAIRecommendation(
         heroId,
         investorType as InvestorType,
         candidates,
@@ -301,7 +269,7 @@ export async function POST(request: NextRequest) {
       typeEmoji: typeInfo.emoji,
       recommendations,
       generatedAt: new Date().toISOString(),
-      isAIGenerated: !!process.env.OPENROUTER_API_KEY,
+      isAIGenerated: true,
     });
     
   } catch (error) {

@@ -5,7 +5,6 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getSystemPromptWithHoldings, AI_PERSONAS } from '@/lib/ai-personas';
 import type { CharacterType } from '@/lib/llm/types';
 import { searchStockNews } from '@/lib/market-data/news';
-import { chatWithOpenRouter } from '@/lib/llm/openrouter';
 import { getSubscriptionInfo, incrementDailyUsage, PLAN_LIMITS, type PlanName } from '@/lib/subscription/guard';
 import { checkRateLimit, CONTENT_LENGTH_LIMITS } from '@/lib/rate-limiter';
 
@@ -635,30 +634,23 @@ ${queryKeyword} 관련 최신 뉴스를 찾지 못했습니다.
 
     let responseContent: string;
 
-    // AI API 호출 시 실패하면 폴백 응답 사용
+    // AI API 호출 (직접 SDK)
     try {
-      // OpenRouter가 설정되어 있으면 우선 사용
-      const useOpenRouter = !!process.env.OPENROUTER_API_KEY;
-      
-      if (useOpenRouter) {
-        responseContent = await chatWithOpenRouter(characterType, systemPrompt, conversationMessages);
-      } else {
-        switch (characterType) {
-          case 'claude':
-            responseContent = await chatWithClaude(systemPrompt, conversationMessages);
-            break;
-          case 'gemini':
-            responseContent = await chatWithGemini(systemPrompt, conversationMessages);
-            break;
-          case 'gpt':
-            responseContent = await chatWithGPT(systemPrompt, conversationMessages);
-            break;
-          default:
-            return NextResponse.json(
-              { success: false, error: 'Unknown character type' },
-              { status: 400 }
-            );
-        }
+      switch (characterType) {
+        case 'claude':
+          responseContent = await chatWithClaude(systemPrompt, conversationMessages);
+          break;
+        case 'gemini':
+          responseContent = await chatWithGemini(systemPrompt, conversationMessages);
+          break;
+        case 'gpt':
+          responseContent = await chatWithGPT(systemPrompt, conversationMessages);
+          break;
+        default:
+          return NextResponse.json(
+            { success: false, error: 'Unknown character type' },
+            { status: 400 }
+          );
       }
     } catch (apiError) {
       console.error(`${characterType} API failed:`, apiError);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMultipleNaverPrices } from '@/lib/market-data/naver';
+import { callAI } from '@/lib/llm/call-ai';
 
 // 숨은 보석 후보 종목 (중소형 + 테마주)
 const HIDDEN_GEM_CANDIDATES = [
@@ -49,15 +50,8 @@ const HIDDEN_GEM_SYSTEM = `당신은 중소형주 전문 애널리스트입니�
 - 경쟁사 대비 차별점
 - 리스크 요인`;
 
-// OpenRouter를 통한 AI 분석
+// AI 분석
 async function analyzeHiddenGems(stocks: typeof HIDDEN_GEM_CANDIDATES, realPrices: Map<string, any>): Promise<any[]> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  
-  if (!apiKey) {
-    console.log('[HiddenGems] OpenRouter API key not found, using fallback');
-    return generateFallbackGems(stocks, realPrices);
-  }
-  
   const stockList = stocks.map(s => {
     const price = realPrices.get(s.code);
     return `- ${s.name}(${s.code}): 섹터 ${s.sector}, 테마 ${s.theme}, 시총 ${s.marketCap}, 성장률 ${s.growth}%, 현재가 ${price?.price?.toLocaleString() || 'N/A'}원`;
@@ -77,7 +71,7 @@ ${stockList}
       "symbol": "종목코드",
       "name": "종목명",
       "theme": "핵심 테마",
-      "potentialReturn": "+50~100%", 
+      "potentialReturn": "+50~100%",
       "timeframe": "6-12개월",
       "reason": "선정 이유 (3-4문장, 구체적 수치 포함)",
       "catalyst": "주가 상승 촉매제 (예: 신제품 출시, 대형 계약 등)",
@@ -89,34 +83,9 @@ ${stockList}
 }`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-        'X-Title': 'StockHero Hidden Gems',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-001',
-        messages: [
-          { role: 'system', content: HIDDEN_GEM_SYSTEM },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 2048,
-        temperature: 0.8,
-      }),
-    });
-    
-    if (!response.ok) {
-      console.error('[HiddenGems] API error:', await response.text());
-      return generateFallbackGems(stocks, realPrices);
-    }
-    
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = await callAI('gemini', HIDDEN_GEM_SYSTEM, prompt, { maxTokens: 2048, temperature: 0.8 });
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    
+
     if (jsonMatch) {
       const result = JSON.parse(jsonMatch[0]);
       return result.gems || [];
@@ -124,7 +93,7 @@ ${stockList}
   } catch (error) {
     console.error('[HiddenGems] Analysis error:', error);
   }
-  
+
   return generateFallbackGems(stocks, realPrices);
 }
 

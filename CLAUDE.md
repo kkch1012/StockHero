@@ -156,7 +156,6 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 | `KIS_APP_KEY` | 실시간 시세 시 | 한국투자증권 KIS API |
 | `KIS_APP_SECRET` | 실시간 시세 시 | KIS API 시크릿 |
 | `KIS_ACCOUNT_NUMBER` | 실시간 시세 시 | KIS 계좌번호 |
-| `OPENROUTER_API_KEY` | 선택 | OpenRouter 통합 키 (미사용) |
 | `CRON_SECRET` | 배포 시 | Vercel Cron 인증 |
 | `ADMIN_SECRET` | 배포 시 | 관리자 API 인증 |
 
@@ -164,17 +163,12 @@ components/analysis/UsageIndicator.tsx        # 사용량 표시기
 
 ## TODO (2026-02-13)
 
-### 1. Cron OpenRouter 제거 → 직접 API 호출로 수정
-- `app/api/cron/daily-top5-debate/route.ts`: OpenRouter(`callOpenRouter`) → Anthropic/Google/OpenAI SDK 직접 호출
-- `app/api/cron/vip-stocks/route.ts`, `vip-signals/route.ts`: 동일하게 OpenRouter 의존 있는지 확인 후 수정
-- `OPENROUTER_API_KEY` 환경변수 완전 제거 (코드 + CLAUDE.md)
-
-### 2. CRON_SECRET 설정 + Cron 트리거
+### 1. CRON_SECRET 설정 + Cron 트리거
 - Vercel 대시보드에서 `CRON_SECRET` 환경변수 추가 (랜덤 문자열)
 - 수동 트리거로 `daily-top5-debate` 실행 → `verdicts` 테이블에 데이터 생성 확인
 - 홈페이지(`/`)에 오늘의 Top 5 표시되는지 확인
 
-### 3. Supabase `verdicts` 테이블 확인
+### 2. Supabase `verdicts` 테이블 확인
 - 테이블 존재 여부, 컬럼 구조 (top5, claude_top5, gemini_top5, gpt_top5, debate_log 등)
 - `predictions` 테이블도 확인
 - 필요 시 마이그레이션 추가

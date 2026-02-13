@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSubscriptionInfo } from '@/lib/subscription/guard';
 import { v4 as uuidv4 } from 'uuid';
+import { callAI } from '@/lib/llm/call-ai';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,17 +132,8 @@ async function generateDeepAnalysis(
   stockInfo: any,
   userQuestion?: string
 ): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return 'API 키가 설정되지 않았습니다.';
-
-  const models: Record<string, string> = {
-    claude: 'anthropic/claude-sonnet-4',
-    gemini: 'google/gemini-2.0-flash',
-    gpt: 'openai/gpt-4o',
-  };
-
   const deepPrompt = VIP_DEEP_ANALYSIS_PROMPTS[characterType];
-  
+
   const systemPrompt = `${deepPrompt}
 
 ## 분석 대상 종목
@@ -155,34 +147,12 @@ ${stockInfo.pbr ? `- PBR: ${stockInfo.pbr}배` : ''}
 ⚠️ VIP 전용 심층 분석입니다. 일반 분석보다 더 구체적이고 상세한 인사이트를 제공하세요.
 구체적인 숫자, 레벨, 타이밍을 명시하세요.`;
 
-  const userPrompt = userQuestion 
+  const userPrompt = userQuestion
     ? `다음 질문에 대해 심층 분석해주세요:\n\n${userQuestion}`
     : `${stockInfo.name}에 대한 VIP 심층 분석을 제공해주세요.`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: models[characterType],
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 3000, // VIP는 더 긴 응답
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '분석 생성에 실패했습니다.';
+    return await callAI(characterType, systemPrompt, userPrompt, { maxTokens: 3000 });
   } catch (error) {
     console.error(`[VIP Debate] ${characterType} error:`, error);
     return '분석 생성 중 오류가 발생했습니다.';

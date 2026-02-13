@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMultipleYahooUSStocks } from '@/lib/market-data/yahoo';
+import { callAI } from '@/lib/llm/call-ai';
 
 // 섹터별 분석 대상 종목
 const SECTOR_STOCKS: Record<string, Array<{ symbol: string; name: string; marketCap: string; per: number; growth: number; dividend?: number }>> = {
@@ -129,20 +130,11 @@ const SECTOR_INFO: Record<string, { name: string; nameKo: string; icon: string; 
   },
 };
 
-// OpenRouter 모델 (2026년 1월 - 실제 존재하는 모델)
-const OPENROUTER_MODEL = 'anthropic/claude-sonnet-4';
-
 async function analyzeSectorWithAI(
   sector: string,
   stocks: Array<{ symbol: string; name: string; marketCap: string; per: number; growth: number; dividend?: number }>,
   realPrices: Map<string, any>
 ): Promise<{ sectorAnalysis: string; top5: any[] }> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    console.error('[Sector AI] No API key configured');
-    return { sectorAnalysis: '', top5: [] };
-  }
-
   const sectorInfo = SECTOR_INFO[sector];
   const stockList = stocks
     .map((s) => {
@@ -189,35 +181,8 @@ ${stockList}
 }`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-        'X-Title': `StockHero ${sector} Sector Analysis`,
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 2500,
-        temperature: 0.7,
-      }),
-    });
+    const text = await callAI('claude', systemPrompt, userPrompt, { maxTokens: 2500 });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[Sector AI] API error: ${response.status}`, error);
-      return { sectorAnalysis: '', top5: [] };
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
-
-    // JSON 추출 및 파싱
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       let jsonStr = jsonMatch[0]
