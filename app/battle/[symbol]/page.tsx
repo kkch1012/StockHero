@@ -1123,7 +1123,7 @@ export default function BattlePage() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="hidden lg:block space-y-6">
               {/* Target Prices Summary - Only shown after debate is complete */}
               {isComplete && targets.length > 0 && currentAnimatingId === null && pendingMessages.length === 0 && (
                 <TargetSummaryCard targets={targets} currentPrice={symbolInfo.price} />

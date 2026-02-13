@@ -114,7 +114,7 @@ export function Header() {
               </div>
 
               {isMobileMenuOpen && (
-                <div className="mt-3 pt-3 border-t border-dark-700/50">
+                <div className="mt-3 pt-3 border-t border-dark-700/50 max-h-[70vh] overflow-y-auto">
                   <div className="grid grid-cols-2 gap-2">
                     {NAV_LINKS.map((link) => (
                       <Link

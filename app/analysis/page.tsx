@@ -160,7 +160,7 @@ export default function AnalysisPage() {
                   onClick={() => handleStockSelect(stock)}
                   className="p-3 sm:p-4 rounded-xl bg-dark-800/50 border border-dark-700 hover:border-brand-500/30 hover:bg-dark-800/80 transition-all text-left group"
                 >
-                  <div className="text-sm sm:text-base font-medium text-dark-100 group-hover:text-white transition-colors">
+                  <div className="text-sm sm:text-base font-medium text-dark-100 group-hover:text-white transition-colors truncate">
                     {stock.name}
                   </div>
                   {p ? (
