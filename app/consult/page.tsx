@@ -11,6 +11,19 @@ import { UsageLimitWarning, UpgradePrompt } from '@/components/subscription';
 import { AlertCircleIcon, InfoIcon, SparklesIcon, ChevronRightIcon, CheckIcon, ArrowLeftIcon } from 'lucide-react';
 import type { CharacterType } from '@/lib/llm/types';
 
+// 마크다운 기호 제거 (이모지는 유지)
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')        // ## 헤더 제거
+    .replace(/\*\*(.+?)\*\*/g, '$1')    // **볼드** → 볼드
+    .replace(/\*(.+?)\*/g, '$1')        // *이탤릭* → 이탤릭
+    .replace(/`([^`]+)`/g, '$1')        // `코드` → 코드
+    .replace(/^>\s+/gm, '')             // > 인용 제거
+    .replace(/^[-*]\s/gm, '• ')         // - 리스트 → • 리스트
+    .replace(/^\d+\.\s/gm, (m) => m)    // 1. 숫자 리스트는 유지
+    .replace(/---+/g, '');              // --- 구분선 제거
+}
+
 // 플랜별 응답 길이 제한
 const RESPONSE_LIMITS: Record<string, number> = {
   free: 500,
@@ -661,7 +674,7 @@ export default function ConsultPage() {
                               : `${char.bgColor} border ${char.borderColor} text-dark-200`
                           }`}
                         >
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.role === 'assistant' ? stripMarkdown(msg.content) : msg.content}</p>
                         </div>
                       </div>
                     ))}
