@@ -40,57 +40,14 @@ export function MissedOpportunity({
   useEffect(() => {
     const fetchMissedOpportunities = async () => {
       try {
-        // 최근 PRO/VIP 알림 중 급등 종목 조회
         const response = await fetch('/api/marketing/missed-opportunities');
         const data = await response.json();
 
-        if (data.success && data.stocks?.length > 0) {
+        if (data.success && data.stocks?.length > 0 && !data.isFallback) {
           setMissedStocks(data.stocks);
-        } else {
-          // 폴백: 최근 급등 데이터 사용
-          setMissedStocks([
-            {
-              name: '에코프로',
-              symbol: '086520',
-              alertPrice: 520000,
-              currentPrice: 582400,
-              changePercent: 12.0,
-              alertTime: '어제 오전 9:15',
-              alertType: 'BUY_SIGNAL',
-            },
-            {
-              name: '두산에너빌리티',
-              symbol: '034020',
-              alertPrice: 18500,
-              currentPrice: 21200,
-              changePercent: 14.6,
-              alertTime: '어제 오후 2:30',
-              alertType: 'PRICE_SURGE',
-            },
-            {
-              name: 'HD현대일렉트릭',
-              symbol: '267260',
-              alertPrice: 285000,
-              currentPrice: 312000,
-              changePercent: 9.5,
-              alertTime: '어제 오전 10:45',
-              alertType: 'BUY_SIGNAL',
-            },
-          ]);
         }
-      } catch (error) {
-        // 폴백 데이터
-        setMissedStocks([
-          {
-            name: 'HD현대일렉트릭',
-            symbol: '267260',
-            alertPrice: 285000,
-            currentPrice: 312000,
-            changePercent: 9.5,
-            alertTime: '어제 오전 10:45',
-            alertType: 'BUY_SIGNAL',
-          },
-        ]);
+      } catch {
+        // 데이터 없으면 컴포넌트 숨김
       } finally {
         setLoading(false);
       }
@@ -120,13 +77,17 @@ export function MissedOpportunity({
 
   const plan = planLabels[targetPlan];
 
-  if (loading || !currentStock) {
+  if (loading) {
     return (
       <div className="bg-dark-800/50 rounded-xl p-6 animate-pulse">
         <div className="h-6 w-48 bg-dark-700 rounded mb-4" />
         <div className="h-16 w-full bg-dark-700 rounded" />
       </div>
     );
+  }
+
+  if (!currentStock) {
+    return null;
   }
 
   // 배너 스타일

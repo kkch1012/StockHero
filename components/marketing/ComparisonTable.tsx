@@ -45,6 +45,7 @@ export function ComparisonTable({
 }: ComparisonTableProps) {
   const [comparisonStock, setComparisonStock] = useState<ComparisonStock | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // 비교 데이터 로드
   useEffect(() => {
@@ -56,51 +57,19 @@ export function ComparisonTable({
         if (data.success && data.stock) {
           setComparisonStock(data.stock);
         } else {
-          // 폴백 데이터
-          setComparisonStock({
-            name: '삼성전자',
-            symbol: '005930',
-            freeInfo: {
-              rank: '1위',
-              analysis: 'AI 3인 합의 추천',
-              targetPrice: null,
-              targetDate: null,
-              signal: null,
-            },
-            proInfo: {
-              rank: '1위',
-              analysis: 'AI 3인 합의 추천. 반도체 업황 회복과 HBM 수요 증가로 실적 개선 기대. 외국인 순매수 지속.',
-              targetPrice: '85,000원',
-              targetDate: '3개월 내',
-              signal: '매수 (RSI 35, 과매도 구간)',
-            },
-          });
+          setLoadError(true);
         }
-      } catch (error) {
-        // 폴백 데이터 설정
-        setComparisonStock({
-          name: '삼성전자',
-          symbol: '005930',
-          freeInfo: {
-            rank: '1위',
-            analysis: 'AI 3인 합의 추천',
-            targetPrice: null,
-            targetDate: null,
-            signal: null,
-          },
-          proInfo: {
-            rank: '1위',
-            analysis: 'AI 3인 합의 추천. 반도체 업황 회복과 HBM 수요 증가로 실적 개선 기대. 외국인 순매수 지속.',
-            targetPrice: '85,000원',
-            targetDate: '3개월 내',
-            signal: '매수 (RSI 35, 과매도 구간)',
-          },
-        });
+      } catch {
+        setLoadError(true);
       }
     };
 
     fetchComparisonData();
   }, []);
+
+  if (loadError) {
+    return null;
+  }
 
   if (!comparisonStock) {
     return (
