@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifyCronAuth, logCronExecution } from '@/lib/cron-auth';
+import { callAI } from '@/lib/llm/call-ai';
 
 /**
  * 🎯 AI 3대장 토론 기반 Top 5 추천 시스템
- * 
+ *
  * 매일 오전 8시(KST)에 실행:
  * 1. 후보 종목 40개 중 섹터별 대표주 선정
  * 2. AI 3대장(Claude, Gemini, GPT)이 3라운드 토론
@@ -17,54 +18,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-// OpenRouter API 호출
-async function callOpenRouter(
-  model: string,
-  systemPrompt: string,
-  userPrompt: string
-): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured');
-  }
-  
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-      'X-Title': 'StockHero Daily Top5 Debate',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 3000,
-      temperature: 0.8,
-    }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.text();
-    console.error(`OpenRouter API error (${model}):`, error);
-    throw new Error(`OpenRouter API failed: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  return data.choices[0]?.message?.content || '';
-}
-
-// 모델 매핑
-const MODELS = {
-  claude: 'anthropic/claude-sonnet-4',
-  gemini: 'google/gemini-2.5-pro-preview',
-  gpt: 'openai/gpt-4o',
-};
 
 // 분석 대상 종목 (확장)
 const CANDIDATE_STOCKS = [
@@ -264,9 +217,8 @@ ${previousContext}
 
   for (const character of order) {
     try {
-      const model = MODELS[character];
       const systemPrompt = SYSTEM_PROMPTS[character];
-      
+
       // 같은 라운드 내 이전 발언 추가
       let inRoundContext = '';
       if (messages.length > 0) {
@@ -275,11 +227,11 @@ ${previousContext}
           inRoundContext += `**${msg.character === 'claude' ? '클로드' : msg.character === 'gemini' ? '제미나인' : '테일러'}**: 선택한 종목 - ${msg.picks.join(', ')}\n`;
         }
       }
-      
+
       const userPrompt = roundPrompts[roundNumber] + inRoundContext;
-      
+
       console.log(`[Round ${roundNumber}] ${character} is thinking...`);
-      const response = await callOpenRouter(model, systemPrompt, userPrompt);
+      const response = await callAI(character, systemPrompt, userPrompt, { maxTokens: 3000, temperature: 0.8 });
       
       // JSON 파싱
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -506,11 +458,6 @@ export async function GET(request: NextRequest) {
       console.log(`[${today}] Force regeneration - deleting existing...`);
       await supabase.from('verdicts').delete().eq('date', today);
       await supabase.from('predictions').delete().eq('date', today);
-    }
-
-    // OpenRouter API 키 확인
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY is not configured. Please set it in your environment variables.');
     }
 
     // 3라운드 토론 실행

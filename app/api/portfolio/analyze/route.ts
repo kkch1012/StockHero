@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// OpenRouter API
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+import { callAI } from '@/lib/llm/call-ai';
 
 interface PortfolioItem {
   symbol: string;
@@ -10,19 +8,14 @@ interface PortfolioItem {
   avgPrice?: number;
 }
 
-interface AIAdvice {
-  symbol: string;
-  name: string;
-  action: 'hold' | 'increase' | 'decrease' | 'sell';
-  reason: string;
-}
-
-async function getAIAnalysis(portfolio: PortfolioItem[], model: string): Promise<any> {
-  const portfolioText = portfolio.map(p => 
+async function getAIAnalysis(portfolio: PortfolioItem[], character: 'claude' | 'gemini' | 'gpt'): Promise<any> {
+  const portfolioText = portfolio.map(p =>
     `- ${p.name}(${p.symbol}): ${p.quantity}주${p.avgPrice ? `, 평균단가 ${p.avgPrice.toLocaleString()}원` : ''}`
   ).join('\n');
 
-  const prompt = `당신은 투자 분석 전문가입니다. 다음 포트폴리오를 분석해주세요.
+  const systemPrompt = '당신은 투자 분석 전문가입니다. JSON 형식으로만 응답하세요.';
+
+  const userPrompt = `다음 포트폴리오를 분석해주세요.
 
 [포트폴리오]
 ${portfolioText}
@@ -44,40 +37,20 @@ ${portfolioText}
 
 JSON만 출력하세요.`;
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1500,
-      temperature: 0.7,
-    }),
-  });
+  const content = await callAI(character, systemPrompt, userPrompt, { maxTokens: 1500 });
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  
-  // Extract JSON
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     return JSON.parse(jsonMatch[0]);
   }
-  
+
   throw new Error('Failed to parse AI response');
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { portfolio } = await request.json();
-    
+
     if (!portfolio || portfolio.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Portfolio is empty' },
@@ -85,24 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get analysis from multiple AIs
-    const models = [
-      'anthropic/claude-3.5-sonnet',
-      'google/gemini-2.0-flash-001',
-      'openai/gpt-4o',
-    ];
+    const characters: Array<'claude' | 'gemini' | 'gpt'> = ['claude', 'gemini', 'gpt'];
 
     let bestAnalysis = null;
-    let lastError = null;
 
-    // Try each model until one succeeds
-    for (const model of models) {
+    // Try each AI until one succeeds
+    for (const character of characters) {
       try {
-        const analysis = await getAIAnalysis(portfolio, model);
-        
+        const analysis = await getAIAnalysis(portfolio, character);
+
         // Validate structure
         if (analysis.riskLevel && analysis.advice && analysis.summary) {
-          // Ensure all portfolio items have advice
           const adviceMap = new Map(analysis.advice.map((a: any) => [a.symbol, a]));
           const completeAdvice = portfolio.map((p: PortfolioItem) => {
             const existing = adviceMap.get(p.symbol);
@@ -122,14 +88,12 @@ export async function POST(request: NextRequest) {
           break;
         }
       } catch (e) {
-        lastError = e;
-        console.error(`Model ${model} failed:`, e);
+        console.error(`AI ${character} failed:`, e);
         continue;
       }
     }
 
     if (!bestAnalysis) {
-      // Fallback response
       bestAnalysis = {
         riskLevel: portfolio.length < 3 ? 'high' : portfolio.length < 5 ? 'medium' : 'low',
         diversificationScore: Math.min(portfolio.length * 2, 10),

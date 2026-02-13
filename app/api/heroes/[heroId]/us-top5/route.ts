@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMultipleYahooUSStocks } from '@/lib/market-data/yahoo';
+import { callAI } from '@/lib/llm/call-ai';
 
 // 분석 대상 미국주식 목록
 const US_ANALYSIS_STOCKS = [
@@ -43,14 +44,6 @@ const US_ANALYSIS_STOCKS = [
   { symbol: 'COIN', name: 'Coinbase', sector: 'Crypto', marketCap: 'Mid', per: 25, growth: 50 },
   { symbol: 'PLTR', name: 'Palantir', sector: 'AI/Data', marketCap: 'Mid', per: 180, growth: 30 },
 ];
-
-// OpenRouter 모델 매핑
-// OpenRouter 최신 모델 (2026년 1월) - 실제 존재하는 모델
-const OPENROUTER_MODELS: Record<string, string> = {
-  claude: 'anthropic/claude-sonnet-4',           // Claude Sonnet 4 (최신)
-  gemini: 'google/gemini-2.5-pro-preview',       // Gemini 2.5 Pro (최신)
-  gpt: 'openai/gpt-4o',                          // GPT-4o (최신)
-};
 
 // 캐릭터별 프로필
 const CHARACTER_PROFILES = {
@@ -134,21 +127,13 @@ Respond in Korean with wisdom and conservative analysis.
   },
 };
 
-async function analyzeWithOpenRouter(
+async function analyzeUSStocks(
   heroId: string,
   stocks: typeof US_ANALYSIS_STOCKS,
   realPrices: Map<string, any>
 ): Promise<any[]> {
   const profile = CHARACTER_PROFILES[heroId as keyof typeof CHARACTER_PROFILES];
   if (!profile) return [];
-
-  const model = OPENROUTER_MODELS[heroId];
-  const apiKey = process.env.OPENROUTER_API_KEY;
-
-  if (!apiKey || !model) {
-    console.error('[OpenRouter] API key or model not configured');
-    return [];
-  }
 
   const stockList = stocks
     .map((s) => {
@@ -171,68 +156,39 @@ ${stockList}
 Respond with JSON only, no other text.`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-        'X-Title': 'StockHero US Stock Analysis',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: profile.systemPrompt },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 2048,
-        temperature: 0.7,
-      }),
-    });
+    const text = await callAI(
+      heroId as 'claude' | 'gemini' | 'gpt',
+      profile.systemPrompt,
+      prompt
+    );
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[OpenRouter] API error: ${response.status}`, error);
-      return [];
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    
     // JSON 추출 및 정제
-    let jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      let jsonStr = jsonMatch[0];
-      
-      // JSON 정제 - 일반적인 오류 수정
-      jsonStr = jsonStr
-        .replace(/,\s*}/g, '}')           // 트레일링 콤마 제거
-        .replace(/,\s*]/g, ']')           // 배열 트레일링 콤마 제거
-        .replace(/[\u0000-\u001F]+/g, '') // 제어 문자 제거
-        .replace(/\n\s*\n/g, '\n');       // 중복 줄바꿈 제거
-      
+      let jsonStr = jsonMatch[0]
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/[\u0000-\u001F]+/g, '')
+        .replace(/\n\s*\n/g, '\n');
+
       try {
         const parsed = JSON.parse(jsonStr);
         const result = parsed.top5 || [];
-        console.log(`[OpenRouter US] Successfully parsed ${result.length} stocks for ${heroId}`);
+        console.log(`[US Top5] Successfully parsed ${result.length} stocks for ${heroId}`);
         return result;
       } catch (parseError) {
-        console.error('[OpenRouter US] JSON parse error, trying to fix:', parseError);
-        
-        // 추가 정제 시도
+        console.error('[US Top5] JSON parse error, trying to fix:', parseError);
         jsonStr = jsonStr.replace(/(["\d])\s*\n\s*(["\d{[])/g, '$1,$2');
         try {
           const parsed = JSON.parse(jsonStr);
-          const result = parsed.top5 || [];
-          console.log(`[OpenRouter US] Recovered ${result.length} stocks for ${heroId}`);
-          return result;
+          return parsed.top5 || [];
         } catch {
-          console.error('[OpenRouter US] Failed to recover JSON');
+          console.error('[US Top5] Failed to recover JSON');
         }
       }
     }
   } catch (error) {
-    console.error('[OpenRouter US] Analysis error:', error);
+    console.error('[US Top5] Analysis error:', error);
   }
   return [];
 }
@@ -264,10 +220,8 @@ export async function GET(
   let top5: any[] = [];
 
   try {
-    if (process.env.OPENROUTER_API_KEY) {
-      console.log(`[${heroId}] Using OpenRouter for US stock analysis`);
-      top5 = await analyzeWithOpenRouter(heroId, US_ANALYSIS_STOCKS, realPrices);
-    }
+    console.log(`[${heroId}] Analyzing US stocks...`);
+    top5 = await analyzeUSStocks(heroId, US_ANALYSIS_STOCKS, realPrices);
   } catch (error) {
     console.error(`US AI analysis failed for ${heroId}:`, error);
   }

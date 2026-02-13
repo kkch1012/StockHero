@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HOT_THEMES, HotTheme, ThemeStock } from '@/lib/data/hot-themes';
 import { fetchMultipleYahooUSStocks } from '@/lib/market-data/yahoo';
-
-// OpenRouter 모델 매핑 (2026년 1월 - 실제 존재하는 모델)
-const OPENROUTER_MODELS: Record<string, string> = {
-  claude: 'anthropic/claude-sonnet-4',
-  gemini: 'google/gemini-2.5-pro-preview',
-  gpt: 'openai/gpt-4o',
-};
+import { callAI } from '@/lib/llm/call-ai';
 
 // AI 캐릭터 프로필
 const CHARACTER_PROFILES: Record<string, { name: string; systemPrompt: string; icon: string; color: string }> = {
@@ -93,11 +87,9 @@ async function analyzeThemeWithAI(
   outlook: string;
 }> {
   const profile = CHARACTER_PROFILES[heroId];
-  const model = OPENROUTER_MODELS[heroId];
-  const apiKey = process.env.OPENROUTER_API_KEY;
 
-  if (!apiKey || !model || !profile) {
-    console.error('[Theme Analysis] Missing config');
+  if (!profile) {
+    console.error('[Theme Analysis] Missing profile for heroId:', heroId);
     return { krPicks: [], usPicks: [], themeAnalysis: '', outlook: '' };
   }
 
@@ -161,41 +153,16 @@ ${formatStockList(usStocks, 'US')}
 }`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-        'X-Title': 'StockHero Theme Analysis',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: profile.systemPrompt },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 2500,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[Theme Analysis] API error: ${response.status}`, error);
-      return { krPicks: [], usPicks: [], themeAnalysis: '', outlook: '' };
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const characterType = heroId as 'claude' | 'gemini' | 'gpt';
+    const text = await callAI(characterType, profile.systemPrompt, prompt, { maxTokens: 2500 });
     const jsonMatch = text.match(/\{[\s\S]*\}/);
 
     if (jsonMatch) {
       let cleanedJson = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
       cleanedJson = cleanedJson.replace(/,\s*([\]}])/g, '$1');
-      
+
       const result = JSON.parse(cleanedJson);
-      
+
       // 현재가 정보 추가
       const addCurrentPrice = (picks: any[], market: 'KR' | 'US') => {
         return picks.map((pick: any) => {

@@ -34,13 +34,6 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || '' });
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
-// OpenRouter 모델 매핑
-// OpenRouter 최신 모델 (2026년 1월) - 실제 존재하는 모델
-const OPENROUTER_MODELS: Record<string, string> = {
-  claude: 'anthropic/claude-sonnet-4',           // Claude Sonnet 4 (최신)
-  gemini: 'google/gemini-2.5-pro-preview',       // Gemini 2.5 Pro (최신)
-  gpt: 'openai/gpt-4o',                          // GPT-4o (최신)
-};
 
 // 분석 대상 종목 목록 (대형주 + 중소형주 + 테마주 다양화)
 const ANALYSIS_STOCKS = [
@@ -345,114 +338,6 @@ ${stockList}
   return [];
 }
 
-// OpenRouter API 호출
-async function analyzeWithOpenRouter(
-  heroId: string,
-  stocks: typeof ANALYSIS_STOCKS,
-  realPrices: Map<string, any>
-): Promise<any[]> {
-  const profile = CHARACTER_PROFILES[heroId as keyof typeof CHARACTER_PROFILES];
-  if (!profile) return [];
-  
-  const model = OPENROUTER_MODELS[heroId];
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  
-  if (!apiKey || !model) {
-    console.error('[OpenRouter] API key or model not configured');
-    return [];
-  }
-  
-  console.log(`[OpenRouter] Analyzing with ${model} for ${heroId}...`);
-  
-  const stockList = stocks.map(s => {
-    const realPrice = realPrices.get(s.symbol);
-    return `- ${s.name}(${s.symbol}): 현재가 ${realPrice?.price?.toLocaleString() || 'N/A'}원, 등락 ${realPrice?.changePercent?.toFixed(2) || 0}%, PER ${s.per}, PBR ${s.pbr}, ROE ${s.roe}%, 배당 ${s.dividend}%, 성장률 ${s.growth}%, 섹터: ${s.sector}, 시가총액: ${s.marketCap}`;
-  }).join('\n');
-
-  const prompt = `아래 종목들을 당신의 투자 관점에서 평가하고, Top 5를 선정해주세요.
-
-## 🚨 필수 요구사항 (반드시 준수)
-1. **대형주 2개 + 중소형/테마주 3개** 조합 필수
-2. 개인투자자가 선호하는 고변동성 테마주 (AI/로봇, 2차전지, 바이오) 포함
-3. 모든 분석에 **구체적인 숫자** 인용 필수
-
-## 분석 대상 종목
-${stockList}
-
-## 분석 시 반드시 포함할 구체적 수치 (예시)
-✅ 좋은 예: "PER 8.5배로 반도체 업종 평균 15배 대비 43% 저평가, ROE 22%로 수익성 우수"
-✅ 좋은 예: "매출 성장률 85%로 2차전지 업종 내 Top 3, 다만 PBR 12.5배로 밸류에이션 부담"
-❌ 나쁜 예: "펀더멘털이 견고하다" (수치 없음)
-❌ 나쁜 예: "성장 잠재력이 높다" (근거 없음)
-
-## 리스크 분석도 구체적으로
-✅ 좋은 예: "부채비율 120% → 금리 상승 시 이자비용 연 500억 증가 예상"
-✅ 좋은 예: "중국 경쟁사 가격 30% 인하 → 시장점유율 하락 우려"
-❌ 나쁜 예: "시장 변동성" (너무 추상적)
-
-## 응답 형식 (JSON만 응답)
-{
-  "top5": [
-    {
-      "rank": 1,
-      "symbol": "종목코드",
-      "name": "종목명",
-      "score": 4.5,
-      "targetPriceMultiplier": 1.25,
-      "reason": "PER X배(업종평균 대비 X% 저평가), ROE X%, 성장률 X% 등 수치 기반 분석 3-4문장",
-      "risks": ["구체적 수치 포함 리스크1", "구체적 수치 포함 리스크2"]
-    }
-  ]
-}
-
-## targetPriceMultiplier 설명
-- 현재가 대비 목표가 배수입니다
-- 예: 1.20 = 현재가 대비 +20% 상승 목표
-- 예: 1.35 = 현재가 대비 +35% 상승 목표
-- 범위: 1.05 ~ 1.50 (5%~50% 상승)
-- ⚠️ 절대값(예: 50000)이 아닌 배수(예: 1.25)로 입력하세요!`;
-
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://stockhero.app',
-        'X-Title': 'StockHero AI Analysis',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: profile.systemPrompt },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 2048,
-        temperature: 0.7,
-      }),
-    });
-    
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[OpenRouter] API error: ${response.status}`, error);
-      return [];
-    }
-    
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    
-    if (jsonMatch) {
-      const result = JSON.parse(jsonMatch[0]).top5;
-      console.log(`[OpenRouter] Successfully parsed ${result.length} stocks`);
-      return result;
-    }
-  } catch (error) {
-    console.error('[OpenRouter] Analysis error:', error);
-  }
-  return [];
-}
-
 // AI 분석 실패 시 에러 반환 (더미 데이터 없음)
 
 export async function GET(
@@ -483,31 +368,20 @@ export async function GET(
     console.error('Failed to fetch real-time prices:', error);
   }
   
-  // 2. AI 분석 수행
+  // 2. AI 분석 수행 (직접 SDK 호출)
   let top5: any[] = [];
-  const useOpenRouter = !!process.env.OPENROUTER_API_KEY;
-  
+
   try {
-    // GPT는 항상 직접 OpenAI API 사용 (OpenRouter 모델 호환성 이슈)
-    // Claude/Gemini는 OpenRouter가 있으면 OpenRouter 사용
-    if (heroId === 'gpt') {
-      // GPT: 직접 OpenAI API 사용
-      console.log(`[${heroId}] Using direct OpenAI API`);
-      top5 = await analyzeWithGPT(ANALYSIS_STOCKS, realPrices);
-    } else if (useOpenRouter) {
-      // Claude/Gemini: OpenRouter 사용
-      console.log(`[${heroId}] Using OpenRouter for analysis`);
-      top5 = await analyzeWithOpenRouter(heroId, ANALYSIS_STOCKS, realPrices);
-    } else {
-      // 개별 API 사용
-      switch (heroId) {
-        case 'claude':
-          top5 = await analyzeWithClaude(ANALYSIS_STOCKS, realPrices);
-          break;
-        case 'gemini':
-          top5 = await analyzeWithGemini(ANALYSIS_STOCKS, realPrices);
-          break;
-      }
+    switch (heroId) {
+      case 'claude':
+        top5 = await analyzeWithClaude(ANALYSIS_STOCKS, realPrices);
+        break;
+      case 'gemini':
+        top5 = await analyzeWithGemini(ANALYSIS_STOCKS, realPrices);
+        break;
+      case 'gpt':
+        top5 = await analyzeWithGPT(ANALYSIS_STOCKS, realPrices);
+        break;
     }
   } catch (error) {
     console.error(`AI analysis failed for ${heroId}:`, error);

@@ -24,10 +24,9 @@ const REQUIRED_ENV_VARS: EnvVarConfig[] = [
  */
 const OPTIONAL_ENV_VARS: EnvVarConfig[] = [
   // AI/LLM
-  { name: 'OPENROUTER_API_KEY', required: false, description: 'OpenRouter API 키 (AI 토론용)' },
-  { name: 'OPENAI_API_KEY', required: false, description: 'OpenAI API 키' },
-  { name: 'ANTHROPIC_API_KEY', required: false, description: 'Anthropic API 키' },
-  { name: 'GOOGLE_AI_API_KEY', required: false, description: 'Google AI API 키' },
+  { name: 'ANTHROPIC_API_KEY', required: false, description: 'Anthropic API 키 (Claude)' },
+  { name: 'GOOGLE_AI_API_KEY', required: false, description: 'Google AI API 키 (Gemini)' },
+  { name: 'OPENAI_API_KEY', required: false, description: 'OpenAI API 키 (GPT)' },
 
   // 결제
   { name: 'PORTONE_API_SECRET', required: false, description: 'PortOne API 시크릿' },
@@ -126,7 +125,7 @@ export function isFeatureEnabled(feature: 'payment' | 'ai' | 'cron' | 'kis'): bo
     case 'payment':
       return !!(process.env.PORTONE_API_SECRET && process.env.PORTONE_STORE_ID);
     case 'ai':
-      return !!(process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY);
+      return !!(process.env.ANTHROPIC_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.OPENAI_API_KEY);
     case 'cron':
       return !!process.env.CRON_SECRET;
     case 'kis':
