@@ -230,9 +230,22 @@ export default function ConsultPage() {
           content: data.data.content,
           character: selectedAI,
         }]);
+      } else {
+        // API 에러 시 사용자에게 피드백
+        const errorMsg = data.error || data.message || '응답을 받지 못했습니다. 다시 시도해주세요.';
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `⚠️ ${errorMsg}`,
+          character: selectedAI,
+        }]);
       }
     } catch (error) {
       console.error('Failed to send message:', error);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '⚠️ 네트워크 오류가 발생했습니다. 다시 시도해주세요.',
+        character: selectedAI,
+      }]);
     } finally {
       setLoading(false);
     }
@@ -677,8 +690,8 @@ export default function ConsultPage() {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  {/* 사용량 경고 */}
-                  {!planLoading && (
+                  {/* 사용량 경고 - 무제한(9999)이 아닐 때만 표시 */}
+                  {!planLoading && !isLimitReached && consultationLimit.limit !== 9999 && consultationLimit.limit !== -1 && (
                     <div className="px-4 pt-2">
                       <UsageLimitWarning
                         feature="ai_consultations"
