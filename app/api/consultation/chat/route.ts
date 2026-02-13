@@ -319,8 +319,13 @@ async function chatWithGemini(systemPrompt: string, messages: ChatMessage[]): Pr
       },
     });
 
-    // Build conversation history
-    const history = messages.slice(0, -1).map(m => ({
+    // Build conversation history (Gemini requires history to start with 'user')
+    let historyMessages = messages.slice(0, -1);
+    // history가 model(assistant)로 시작하면 앞에 user 메시지 추가
+    if (historyMessages.length > 0 && historyMessages[0].role === 'assistant') {
+      historyMessages = [{ role: 'user' as const, content: '이 종목에 대해 분석해주세요.' }, ...historyMessages];
+    }
+    const history = historyMessages.map(m => ({
       role: m.role === 'user' ? 'user' as const : 'model' as const,
       parts: [{ text: m.content }],
     }));
