@@ -1,6 +1,8 @@
 // 관리자 이메일 목록
 export const ADMIN_EMAILS = [
   'niceverygood1@gmail.com',
+  'nicevergood1@gmail.com',
+  'dev@bottlecorp.kr',
 ];
 
 // 관리자 여부 확인
